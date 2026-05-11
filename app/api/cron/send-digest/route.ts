@@ -59,13 +59,18 @@ export async function GET(request: NextRequest) {
     author: { full_name: string | null; email: string } | { full_name: string | null; email: string }[] | null;
   }>).map((p) => {
     const a = Array.isArray(p.author) ? p.author[0] : p.author;
+    // `noUncheckedIndexedAccess: true` makes `email.split("@")[0]` return
+    // `string | undefined`, so we chain `??` with a hard fallback so the
+    // final value is always `string`.
+    const handle = a?.email?.split("@")[0] ?? "ConveGenius team";
+    const authorName: string = a?.full_name?.trim() || handle;
     return {
       title: p.title,
       slug: p.slug,
       excerpt: p.excerpt,
       publishedAt: p.published_at,
       readTimeMinutes: p.read_time_minutes,
-      authorName: a?.full_name || (a?.email ? a.email.split("@")[0] : "ConveGenius team"),
+      authorName,
     };
   });
 
