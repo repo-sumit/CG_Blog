@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, BookOpen, PenSquare, FileText, ShieldCheck, LogOut } from "lucide-react";
 import type { ProfileRow } from "@/lib/db/types";
@@ -29,9 +30,7 @@ export function TopNav({ profile }: { profile: ProfileRow }) {
     <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur">
       <div className="container mx-auto flex h-14 items-center gap-2 px-4">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold tracking-tight">
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
-            CG
-          </span>
+          <Image src="/icon.png" alt="ConveGenius" width={28} height={28} className="rounded-md" />
           <span className="hidden sm:inline">Team Blog</span>
         </Link>
 

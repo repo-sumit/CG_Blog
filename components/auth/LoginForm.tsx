@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { LogIn, Mail, Loader2 } from "lucide-react";
+import Image from "next/image";
+import { Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -90,7 +91,7 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
           {oauthing ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
-            <LogIn className="mr-2 h-4 w-4" />
+            <Image src="/google.svg" alt="" width={18} height={18} className="mr-2" />
           )}
           Continue with Google
         </Button>

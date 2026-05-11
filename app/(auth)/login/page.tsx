@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/auth/guards";
 import LoginForm from "@/components/auth/LoginForm";
@@ -26,9 +27,14 @@ export default async function LoginPage({
     <main className="min-h-screen grid place-items-center bg-gradient-to-b from-background to-muted/30 p-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold mb-3">
-            CG
-          </div>
+          <Image
+            src="/icon.png"
+            alt="ConveGenius"
+            width={48}
+            height={48}
+            className="mx-auto mb-3 rounded-xl"
+            priority
+          />
           <h1 className="text-2xl font-semibold tracking-tight">ConveGenius Team Blog</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Internal workspace. Sign in with your ConveGenius.ai email.
