@@ -136,10 +136,12 @@ create table if not exists public.media_assets (
 create index if not exists media_assets_post_idx on public.media_assets (post_id);
 create index if not exists media_assets_owner_idx on public.media_assets (owner_id);
 
-alter table public.posts
-  add constraint posts_cover_media_fk
-  foreign key (cover_media_id) references public.media_assets(id) on delete set null
-  deferrable initially deferred;
+do $$ begin
+  alter table public.posts
+    add constraint posts_cover_media_fk
+    foreign key (cover_media_id) references public.media_assets(id) on delete set null
+    deferrable initially deferred;
+exception when duplicate_object then null; end $$;
 
 -- ============================================================
 -- Post tags
