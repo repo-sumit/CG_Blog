@@ -84,11 +84,34 @@ export interface PostTemplateRow {
 
 // `Database` is intentionally permissive — we only use it as a generic to the
 // Supabase client so server queries compile without `any`. Replace with
-// generated types in production.
+// generated types (`supabase gen types typescript`) in production.
+//
+// IMPORTANT: each `Tables` entry MUST include a `Relationships` field, and the
+// `Views` / `CompositeTypes` must use the `{ [_ in never]: never }` empty-shape
+// idiom. Otherwise supabase-js's `GenericSchema` constraint silently rejects
+// the Database type and falls back to default overloads where `rpc()` requires
+// `args: undefined`. See https://github.com/supabase/postgrest-js types.ts.
+type GenericTable = {
+  Row: Record<string, unknown>;
+  Insert: Record<string, unknown>;
+  Update: Record<string, unknown>;
+  Relationships: [];
+};
+
 export type Database = {
   public: {
-    Tables: Record<string, { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown> }>;
-    Views: Record<string, never>;
+    Tables: {
+      app_settings: GenericTable;
+      profiles: GenericTable;
+      authorized_users: GenericTable;
+      tags: GenericTable;
+      post_templates: GenericTable;
+      posts: GenericTable;
+      media_assets: GenericTable;
+      post_tags: GenericTable;
+      audit_logs: GenericTable;
+    };
+    Views: { [_ in never]: never };
     Functions: {
       assign_weekday: {
         Args: { p_user_id: string; p_weekday: number | null };
@@ -110,6 +133,6 @@ export type Database = {
       media_type: MediaType;
       media_source_type: MediaSourceType;
     };
-    CompositeTypes: Record<string, never>;
+    CompositeTypes: { [_ in never]: never };
   };
 };
