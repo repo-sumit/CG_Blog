@@ -20,24 +20,24 @@ export const TEAM_META: Record<string, TeamMember> = {
     topics: ["Product", "AI", "Launch"],
   },
   "aditya.c@convegenius.ai": {
-    designation: "Product Manager",
-    pod: "ConveGenius AI",
-    topics: ["Product", "Experiment", "Engineering"],
+    designation: "Senior Product Manager",
+    pod: "Product",
+    topics: ["Product", "Launch", "Experiment"],
   },
   "om.kumar@convegenius.ai": {
-    designation: "Engineering",
-    pod: "Platform",
-    topics: ["Engineering", "Sprint Update"],
+    designation: "Senior UI/UX Designer",
+    pod: "Design",
+    topics: ["Design", "Product", "Research"],
   },
   "insha.naseem@convegenius.ai": {
-    designation: "Design",
-    pod: "Brand",
+    designation: "Design Intern",
+    pod: "Design",
     topics: ["Design", "Research"],
   },
   "aryan.singh@convegenius.ai": {
-    designation: "Engineering",
-    pod: "Platform",
-    topics: ["Engineering", "QA"],
+    designation: "Product Intern",
+    pod: "Product",
+    topics: ["Product", "Research"],
   },
 };
 
