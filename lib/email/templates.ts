@@ -1,9 +1,9 @@
 import "server-only";
 
 // Email HTML templates. Table-based layout + inline styles — required for
-// Outlook/Gmail/iOS Mail compatibility. Tone matches the dark-portal brand
-// but the email body is light-themed for readability (most email clients
-// force-override or ignore dark CSS).
+// Outlook/Gmail/iOS Mail compatibility. Body stays light-themed for
+// readability (most clients ignore or invert dark CSS), but the masthead
+// keeps the dark portal aesthetic so the brand still reads.
 
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 function esc(input: string): string {
@@ -25,39 +25,83 @@ interface BaseTemplateOpts {
 }
 
 // ============================================================
-// Welcome email — sent on first subscribe
+// Welcome
 // ============================================================
 
 export function welcomeTemplate({ appUrl, unsubscribeUrl }: BaseTemplateOpts) {
   return {
-    subject: "You're in — ConveGenius Weekly Signals",
-    text: `Welcome to ConveGenius Weekly Signals.
+    subject: "Transmission received — CG Signal is live in your inbox",
+    text: `[CG SIGNAL // SUBSCRIPTION CONFIRMED]
 
-You'll get a short digest of the latest team transmissions every Monday morning.
-No spam, no tracking pixels. Just notes, retros, launches, and experiments from team Dhurandhar.
+You're locked in.
 
-Browse the portal: ${appUrl}
+Every Monday morning we'll beam over a short digest of the week's transmissions from team Dhurandhar — notes, retros, launches, experiments, and the occasional plot twist.
+
+What you'll get:
+  · One email a week (Mondays)
+  · 3–5 hand-picked posts per issue
+  · Direct links to read, comment, react
+
+What you won't get:
+  · Daily nags
+  · Tracking pixels
+  · Spam, ever
+
+Open the portal: ${appUrl}
 Unsubscribe anytime: ${unsubscribeUrl}
 
 — Team Dhurandhar`,
     html: shell(
       `
-        <h1 style="margin:0 0 16px;font-size:28px;line-height:1.1;font-family:Georgia,serif;">
-          You're in.
-        </h1>
-        <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#374151;">
-          One short digest a week. The latest transmissions from team Dhurandhar — notes,
-          retros, launches, and experiments — and nothing else.
-        </p>
-        <p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#374151;">
-          No spam. No tracking pixels. No daily nags.
-        </p>
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
           <tr>
-            <td style="background:#111827;border-radius:8px;">
-              <a href="${esc(appUrl)}" style="display:inline-block;padding:12px 22px;color:#f5f1e8;font-weight:600;font-size:14px;text-decoration:none;letter-spacing:0.05em;text-transform:uppercase;font-family:'Space Mono',monospace;">
-                Open the portal
-              </a>
+            <td style="padding-bottom:18px;border-bottom:1px solid #e5e7eb;">
+              ${tickerStrip(["SIGNAL LOCKED", "SUBSCRIPTION CONFIRMED", "BOOT COMPLETE"])}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top:24px;">
+              <h1 style="margin:0 0 12px;font-size:32px;line-height:1.05;font-family:Georgia,serif;letter-spacing:-0.02em;">
+                You're locked in.
+              </h1>
+              <p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#374151;">
+                Every Monday morning we'll beam over a short digest of the week's
+                transmissions from <strong>team Dhurandhar</strong> — notes, retros,
+                launches, experiments, and the occasional plot twist.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;background:#f4f0df;border:1px solid #e5e7eb;border-radius:10px;">
+                <tr>
+                  <td style="padding:20px 22px;">
+                    <div style="font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:#ff5a1f;margin-bottom:10px;">
+                      What you'll get
+                    </div>
+                    ${bullet("One email a week · Mondays")}
+                    ${bullet("3–5 hand-picked posts per issue")}
+                    ${bullet("Direct links to read, comment, react")}
+                    <div style="height:14px;line-height:14px;font-size:1px;">&nbsp;</div>
+                    <div style="font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:#6b7280;margin-bottom:10px;">
+                      What you won't get
+                    </div>
+                    ${bullet("Daily nags", true)}
+                    ${bullet("Tracking pixels", true)}
+                    ${bullet("Spam, ever", true)}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="left" style="padding-bottom:8px;">
+              ${primaryButton("Open the portal →", appUrl)}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top:20px;border-top:1px solid #e5e7eb;">
+              ${asciiSignoff()}
             </td>
           </tr>
         </table>
@@ -68,7 +112,7 @@ Unsubscribe anytime: ${unsubscribeUrl}
 }
 
 // ============================================================
-// Weekly digest email
+// Weekly digest
 // ============================================================
 
 export function digestTemplate({
@@ -77,41 +121,52 @@ export function digestTemplate({
   posts,
   weekLabel,
 }: BaseTemplateOpts & { posts: DigestPost[]; weekLabel: string }) {
-  if (posts.length === 0) {
-    // We never enqueue an empty digest, but guard anyway.
-    return null;
-  }
+  if (posts.length === 0) return null;
 
+  const totalMinutes = posts.reduce((sum, p) => sum + p.readTimeMinutes, 0);
+  const authorList = Array.from(new Set(posts.map((p) => p.authorName))).join(", ");
   const subject = `CG Signal · ${weekLabel} · ${posts.length} transmission${posts.length === 1 ? "" : "s"}`;
 
-  const text = `${subject}\n\n${posts
+  const text = `[CG SIGNAL // ${weekLabel}]\n\nThis week: ${posts.length} transmission${posts.length === 1 ? "" : "s"} · ~${totalMinutes} min total\nBy: ${authorList}\n\n${posts
     .map(
-      (p) =>
-        `${p.title}\n${p.excerpt ?? ""}\n${p.authorName} · ${p.readTimeMinutes} min\n${appUrl}/posts/${p.slug}\n`,
+      (p, i) =>
+        `${String(i + 1).padStart(2, "0")} · ${p.title}\n   ${p.excerpt ?? ""}\n   ${p.authorName} · ${p.readTimeMinutes} min\n   ${appUrl}/posts/${p.slug}\n`,
     )
-    .join("\n---\n\n")}\n\nUnsubscribe: ${unsubscribeUrl}`;
+    .join("\n")}\n\nUnsubscribe: ${unsubscribeUrl}`;
 
   const items = posts
-    .map(
-      (p) => `
+    .map((p, i) => {
+      const ordinal = String(i + 1).padStart(2, "0");
+      return `
         <tr>
-          <td style="padding:16px 0;border-bottom:1px solid #e5e7eb;">
-            <a href="${esc(appUrl)}/posts/${esc(p.slug)}" style="text-decoration:none;color:#111827;">
-              <div style="font-size:20px;line-height:1.25;font-weight:700;font-family:Georgia,serif;margin-bottom:6px;">
-                ${esc(p.title)}
-              </div>
-              ${
-                p.excerpt
-                  ? `<div style="font-size:14px;line-height:1.55;color:#4b5563;margin-bottom:8px;">${esc(p.excerpt)}</div>`
-                  : ""
-              }
-              <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:#6b7280;font-family:'Space Mono',monospace;">
-                ${esc(p.authorName)} · ${p.readTimeMinutes} min read
-              </div>
+          <td style="padding:20px 0;border-bottom:1px solid #e5e7eb;">
+            <a href="${esc(appUrl)}/posts/${esc(p.slug)}" style="text-decoration:none;color:#111827;display:block;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td valign="top" width="40" style="padding-right:14px;">
+                    <div style="font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:12px;color:#ff5a1f;font-weight:700;letter-spacing:0.05em;">
+                      ${ordinal}
+                    </div>
+                  </td>
+                  <td valign="top">
+                    <div style="font-size:20px;line-height:1.25;font-weight:700;font-family:Georgia,serif;margin-bottom:6px;color:#111827;">
+                      ${esc(p.title)}
+                    </div>
+                    ${
+                      p.excerpt
+                        ? `<div style="font-size:14px;line-height:1.55;color:#4b5563;margin-bottom:10px;">${esc(p.excerpt)}</div>`
+                        : ""
+                    }
+                    <div style="font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:#6b7280;">
+                      ${esc(p.authorName)} · ${p.readTimeMinutes} min read · <span style="color:#ff5a1f;">Read →</span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
             </a>
           </td>
-        </tr>`,
-    )
+        </tr>`;
+    })
     .join("");
 
   return {
@@ -119,14 +174,48 @@ export function digestTemplate({
     text,
     html: shell(
       `
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.16em;color:#ff5a1f;font-family:'Space Mono',monospace;margin-bottom:8px;">
-          ${esc(weekLabel)}
-        </div>
-        <h1 style="margin:0 0 24px;font-size:28px;line-height:1.1;font-family:Georgia,serif;">
-          This week's signals.
-        </h1>
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-          ${items}
+          <tr>
+            <td style="padding-bottom:18px;border-bottom:1px solid #e5e7eb;">
+              ${tickerStrip([`WEEK · ${weekLabel}`, "SIGNAL FEED ACTIVE", "TRANSMISSION INBOUND"])}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top:24px;padding-bottom:8px;">
+              <div style="font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:#ff5a1f;">
+                ${esc(weekLabel)}
+              </div>
+              <h1 style="margin:6px 0 14px;font-size:30px;line-height:1.05;font-family:Georgia,serif;letter-spacing:-0.02em;">
+                This week's signals.
+              </h1>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              ${readoutStrip([
+                { label: "Posts",        value: String(posts.length) },
+                { label: "Total read",   value: `${totalMinutes} min` },
+                { label: "Contributors", value: String(new Set(posts.map((p) => p.authorName)).size) },
+              ])}
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                ${items}
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top:18px;">
+              ${primaryButton("Browse the full feed →", appUrl)}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top:20px;border-top:1px solid #e5e7eb;">
+              ${asciiSignoff()}
+            </td>
+          </tr>
         </table>
       `,
       { appUrl, unsubscribeUrl },
@@ -135,7 +224,7 @@ export function digestTemplate({
 }
 
 // ============================================================
-// Shared shell — masthead + footer + unsubscribe
+// Building blocks
 // ============================================================
 
 function shell(bodyHtml: string, { appUrl, unsubscribeUrl }: BaseTemplateOpts) {
@@ -146,36 +235,49 @@ function shell(bodyHtml: string, { appUrl, unsubscribeUrl }: BaseTemplateOpts) {
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>CG Signal</title>
 </head>
-<body style="margin:0;padding:0;background:#f4f0df;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;color:#111827;">
+<body style="margin:0;padding:0;background:#f4f0df;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#111827;">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f4f0df;">
     <tr>
       <td align="center" style="padding:32px 16px;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;">
-          <!-- Masthead -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#ffffff;border:1px solid #d6d3c4;border-radius:14px;overflow:hidden;">
+          <!-- Masthead — dark portal -->
           <tr>
-            <td style="padding:24px 32px;border-bottom:1px solid #e5e7eb;">
-              <a href="${esc(appUrl)}" style="text-decoration:none;color:#111827;">
-                <div style="font-family:'Space Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.16em;color:#6b7280;">
-                  ConveGenius · Team Blog Portal
-                </div>
-                <div style="font-family:Georgia,serif;font-size:22px;font-weight:800;margin-top:4px;">
-                  CG SIGNAL
-                </div>
+            <td style="padding:22px 32px;background:#0b0d12;">
+              <a href="${esc(appUrl)}" style="text-decoration:none;display:block;color:#f5f1e8;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                  <tr>
+                    <td>
+                      <div style="font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.18em;color:#a8a294;">
+                        ConveGenius · Team Blog Portal
+                      </div>
+                      <div style="font-family:Georgia,serif;font-size:24px;font-weight:800;color:#f5f1e8;margin-top:6px;letter-spacing:-0.01em;">
+                        CG&nbsp;SIGNAL
+                      </div>
+                    </td>
+                    <td align="right" valign="middle">
+                      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#35d07f;box-shadow:0 0 10px rgba(53,208,127,0.7);margin-right:6px;vertical-align:middle;"></span>
+                      <span style="font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:#a8a294;vertical-align:middle;">
+                        Live
+                      </span>
+                    </td>
+                  </tr>
+                </table>
               </a>
             </td>
           </tr>
           <!-- Body -->
           <tr>
-            <td style="padding:32px;">${bodyHtml}</td>
+            <td style="padding:28px 32px;">${bodyHtml}</td>
           </tr>
           <!-- Footer -->
           <tr>
-            <td style="padding:24px 32px;border-top:1px solid #e5e7eb;background:#fafaf6;border-radius:0 0 12px 12px;">
-              <div style="font-family:'Space Mono',monospace;font-size:11px;color:#6b7280;line-height:1.6;">
-                You're subscribed to ConveGenius Weekly Signals.
+            <td style="padding:20px 32px;border-top:1px solid #e5e7eb;background:#fafaf6;">
+              <div style="font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;line-height:1.6;color:#6b7280;text-transform:uppercase;letter-spacing:0.14em;">
+                CG SIGNAL · Internal Blog OS · Team Dhurandhar
                 <br />
                 <a href="${esc(unsubscribeUrl)}" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a>
-                · <a href="${esc(appUrl)}" style="color:#6b7280;text-decoration:underline;">Open the portal</a>
+                &nbsp;·&nbsp;
+                <a href="${esc(appUrl)}" style="color:#6b7280;text-decoration:underline;">Portal</a>
               </div>
             </td>
           </tr>
@@ -185,4 +287,66 @@ function shell(bodyHtml: string, { appUrl, unsubscribeUrl }: BaseTemplateOpts) {
   </table>
 </body>
 </html>`;
+}
+
+function tickerStrip(items: string[]): string {
+  const cells = items
+    .map(
+      (item, i) =>
+        `<td style="padding:6px 14px;font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:#111827;${i > 0 ? "border-left:1px solid #d6d3c4;" : ""}">${esc(item)}</td>`,
+    )
+    .join("");
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background:#f4f0df;border:1px solid #d6d3c4;border-radius:999px;overflow:hidden;"><tr>${cells}</tr></table>`;
+}
+
+function readoutStrip(stats: { label: string; value: string }[]): string {
+  const cols = stats
+    .map(
+      (s, i) => `
+        <td valign="top" width="33%" style="padding:14px 16px;${i > 0 ? "border-left:1px solid #e5e7eb;" : ""}">
+          <div style="font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:#6b7280;">
+            ${esc(s.label)}
+          </div>
+          <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;margin-top:2px;color:#111827;">
+            ${esc(s.value)}
+          </div>
+        </td>`,
+    )
+    .join("");
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 22px;background:#f4f0df;border:1px solid #d6d3c4;border-radius:10px;"><tr>${cols}</tr></table>`;
+}
+
+function bullet(text: string, negative = false): string {
+  const mark = negative ? "✕" : "●";
+  const markColor = negative ? "#9ca3af" : "#35d07f";
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:4px;">
+      <tr>
+        <td valign="top" width="20" style="font-family:'Space Mono','SF Mono','Menlo',monospace;color:${markColor};font-size:12px;line-height:1.4;">${mark}</td>
+        <td valign="top" style="font-size:14px;line-height:1.5;color:#374151;">${esc(text)}</td>
+      </tr>
+    </table>`;
+}
+
+function primaryButton(label: string, href: string): string {
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="background:#0b0d12;border-radius:999px;">
+          <a href="${esc(href)}" style="display:inline-block;padding:13px 26px;color:#f5f1e8;font-weight:700;font-size:11px;text-decoration:none;letter-spacing:0.18em;text-transform:uppercase;font-family:'Space Mono','SF Mono','Menlo',monospace;">
+            ${esc(label)}
+          </a>
+        </td>
+      </tr>
+    </table>`;
+}
+
+// Decorative monospace block — pure text so it renders in every client.
+function asciiSignoff(): string {
+  return `
+    <pre style="margin:0;padding:0;font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:11px;line-height:1.4;color:#9ca3af;white-space:pre;letter-spacing:0;">
+&gt; END OF TRANSMISSION
+&gt; SIGNAL: STABLE · CHANNEL: WEEKLY
+&gt; — team dhurandhar
+    </pre>`;
 }

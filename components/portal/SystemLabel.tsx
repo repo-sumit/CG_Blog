@@ -31,11 +31,3 @@ export function SystemLabel({ tone = "muted", dot, className, children, ...rest 
     </span>
   );
 }
-
-export function JapaneseLabel({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <span className={cn("font-ui text-[11px] text-portal-text-soft tracking-wider", className)} aria-hidden>
-      {children}
-    </span>
-  );
-}
