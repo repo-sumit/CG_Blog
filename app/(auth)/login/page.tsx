@@ -8,8 +8,17 @@ export const metadata: Metadata = { title: "Sign in" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { redirect?: string; error?: string };
+  searchParams: { redirect?: string; error?: string; code?: string };
 }) {
+  // Self-heal: if Supabase fell back to the Site URL with an OAuth `code` in
+  // the query string (because the configured redirectTo wasn't on the allow-
+  // list), forward the code to our real callback so the session can complete.
+  if (searchParams.code) {
+    const params = new URLSearchParams({ code: searchParams.code });
+    if (searchParams.redirect) params.set("redirect", searchParams.redirect);
+    redirect(`/api/auth/callback?${params.toString()}`);
+  }
+
   const ctx = await getSessionContext();
   if (ctx) redirect(searchParams.redirect ?? "/dashboard");
 
