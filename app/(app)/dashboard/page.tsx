@@ -85,7 +85,7 @@ export default async function DashboardPage() {
             </Button>
           )}
           <Button asChild variant="outline">
-            <Link href="/blog">Open Signal Feed</Link>
+            <Link href="/">Open Signal Feed</Link>
           </Button>
         </div>
       </section>

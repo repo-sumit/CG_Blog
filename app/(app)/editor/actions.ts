@@ -154,8 +154,8 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
     }
   }
 
-  revalidatePath("/blog");
-  revalidatePath(`/blog/${slug}`);
+  revalidatePath("/");
+  revalidatePath(`/posts/${slug}`);
   revalidatePath("/me/posts");
   revalidatePath("/dashboard");
 
@@ -194,7 +194,7 @@ export async function softDeletePost(id: string): Promise<SavePostResult> {
     .update({ status: "archived", archived_at: new Date().toISOString() })
     .eq("id", parsed.data);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/blog");
+  revalidatePath("/");
   revalidatePath("/me/posts");
   revalidatePath("/dashboard");
   return { ok: true, id: parsed.data, slug: (existing as { slug: string }).slug };
@@ -244,7 +244,7 @@ export async function permanentDeletePost(id: string): Promise<SavePostResult> {
   // their rows but post_id becomes null (FK is on delete set null).
   const { error } = await supabase.from("posts").delete().eq("id", parsed.data);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/blog");
+  revalidatePath("/");
   revalidatePath("/me/posts");
   return { ok: true, id: parsed.data };
 }

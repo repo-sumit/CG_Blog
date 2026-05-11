@@ -17,7 +17,7 @@ export function PostCard({ post }: { post: PostWithAuthor }) {
   const m = mediaIndicators(post.content_html);
   return (
     <article className="group rounded-md border border-portal-border-soft bg-portal-panel transition-colors hover:border-portal-border-muted">
-      <Link href={`/blog/${post.slug}`} className="block p-5">
+      <Link href={`/posts/${post.slug}`} className="block p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex flex-wrap gap-1.5">
             {post.tags.slice(0, 2).map((t) => (

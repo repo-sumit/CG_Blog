@@ -2,12 +2,24 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { publicEnv } from "@/lib/env";
 
+// Paths reachable WITHOUT a Supabase session. The landing and public post
+// detail are now part of this list — anonymous visitors can read published
+// posts without signing in. /login and /api/auth/callback stay public so the
+// auth flow itself works.
 const PUBLIC_PATHS = [
+  "/",
+  "/posts",
   "/login",
   "/unauthorized",
   "/api/auth/callback",
+  "/api/media/file",     // signed-URL re-sign: needed for public media playback
   "/favicon.ico",
+  "/google.svg",
 ];
+
+// Exact-match list for paths where startsWith would over-match (e.g. "/" would
+// catch everything). For these we only allow exact equality.
+const PUBLIC_EXACT = new Set<string>(["/"]);
 
 export async function updateSession(request: NextRequest) {
   if (!publicEnv.supabaseUrl || !publicEnv.supabasePublishableKey) {
@@ -63,7 +75,10 @@ export async function updateSession(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  // The "/" entry needs exact-match treatment because every URL starts with "/".
+  // Everything else uses prefix matching with a trailing-slash safeguard.
+  const isPublic = PUBLIC_EXACT.has(pathname)
+    || PUBLIC_PATHS.some((p) => p !== "/" && (pathname === p || pathname.startsWith(p + "/")));
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

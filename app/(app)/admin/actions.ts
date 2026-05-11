@@ -149,7 +149,7 @@ export async function createTag(input: z.infer<typeof TagInput>): Promise<Action
   const { error } = await supabase.from("tags").insert({ name, slug });
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/tags");
-  revalidatePath("/blog");
+  revalidatePath("/");
   return { ok: true };
 }
 
@@ -195,6 +195,6 @@ export async function setPostStatus(
   const { error } = await supabase.from("posts").update(update).eq("id", parsed.data.postId);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin");
-  revalidatePath("/blog");
+  revalidatePath("/");
   return { ok: true };
 }

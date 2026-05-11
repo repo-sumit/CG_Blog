@@ -19,7 +19,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/dashboard",  label: "Dashboard",   icon: LayoutDashboard, show: () => true },
-  { href: "/blog",       label: "Signal Feed", icon: BookOpen,        show: () => true },
+  { href: "/",           label: "Signal Feed", icon: BookOpen,        show: () => true },
   { href: "/me/posts",   label: "My Posts",    icon: FileText,        show: (r) => canAuthor(r) },
   { href: "/editor/new", label: "Transmit",    icon: PenSquare,       show: (r) => canAuthor(r) },
   { href: "/admin",      label: "Admin",       icon: ShieldCheck,     show: (r) => isManager(r) },
@@ -45,7 +45,9 @@ export function TopNav({ profile, effectiveRole, viewModeActive }: Props) {
 
         <nav className="hidden flex-1 items-center gap-1 md:flex" aria-label="Primary">
           {visibleNav.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            // "/" must match exactly — otherwise it would match every route.
+            const active =
+              item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href + "/");
             const Icon = item.icon;
             return (
               <Link

@@ -241,7 +241,7 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
     if (res?.ok) {
       toast.success(next === "published" ? "Published." : "Submitted for review.");
       if (next === "published" && res.slug) {
-        router.push(`/blog/${res.slug}`);
+        router.push(`/posts/${res.slug}`);
       } else {
         router.push("/me/posts");
       }

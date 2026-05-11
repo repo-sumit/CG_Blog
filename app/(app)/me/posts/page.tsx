@@ -100,7 +100,7 @@ export default async function MyPostsPage() {
                           </Button>
                           {p.status === "published" && (
                             <Button asChild size="sm" variant="ghost">
-                              <Link href={`/blog/${p.slug}`}>View</Link>
+                              <Link href={`/posts/${p.slug}`}>View</Link>
                             </Button>
                           )}
                           <PostRowActions
