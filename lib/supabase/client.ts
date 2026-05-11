@@ -2,9 +2,9 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import { publicEnv, assertPublicSupabaseEnv } from "@/lib/env";
-import type { Database } from "@/lib/db/types";
 
+// See note in lib/supabase/server.ts about why we don't pass <Database>.
 export function createSupabaseBrowserClient() {
   assertPublicSupabaseEnv();
-  return createBrowserClient<Database>(publicEnv.supabaseUrl, publicEnv.supabasePublishableKey);
+  return createBrowserClient(publicEnv.supabaseUrl, publicEnv.supabasePublishableKey);
 }

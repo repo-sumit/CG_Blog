@@ -3,12 +3,21 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { publicEnv, serverEnv, assertPublicSupabaseEnv } from "@/lib/env";
-import type { Database } from "@/lib/db/types";
+
+// NOTE on typing: we deliberately do NOT pass a `<Database>` generic to the
+// Supabase clients. supabase-js's typed surface depends on the Database type
+// satisfying an internal `GenericSchema` constraint that has changed across
+// minor versions (Relationships, SetofOptions, etc.). Our hand-rolled types
+// can't reliably satisfy it without running `supabase gen types typescript`
+// against the live project. With no generic, the client is `SupabaseClient<any>`
+// and accepts any insert/update/upsert/rpc payload — the runtime contracts are
+// still enforced by the SQL schema + RLS. Swap in generated types later if
+// stricter compile-time safety is desired.
 
 export function createSupabaseServerClient() {
   assertPublicSupabaseEnv();
   const cookieStore = cookies();
-  return createServerClient<Database>(publicEnv.supabaseUrl, publicEnv.supabasePublishableKey, {
+  return createServerClient(publicEnv.supabaseUrl, publicEnv.supabasePublishableKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -35,7 +44,7 @@ export function createSupabaseServiceClient() {
   if (!serviceRoleKey) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
   }
-  return createClient<Database>(publicEnv.supabaseUrl, serviceRoleKey, {
+  return createClient(publicEnv.supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
