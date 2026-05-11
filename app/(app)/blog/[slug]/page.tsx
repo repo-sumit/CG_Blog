@@ -48,7 +48,7 @@ export default async function PostDetailPage({ params }: { params: { slug: strin
 
       <article>
         <div className="mb-4 flex items-center gap-3">
-          <SystemLabel tone="orange">{ordinal(post.id)} // Transmission</SystemLabel>
+          <SystemLabel tone="orange">{`${ordinal(post.id)} // Transmission`}</SystemLabel>
           <JapaneseLabel>記事</JapaneseLabel>
           {post.status !== "published" && <Badge variant="warning">{post.status}</Badge>}
           {post.assigned_weekday && <Badge variant="outline">{weekdayLabel(post.assigned_weekday)}</Badge>}
@@ -100,7 +100,7 @@ export default async function PostDetailPage({ params }: { params: { slug: strin
             {relatedFiltered.map((p) => (
               <Panel key={p.id} variant="raised">
                 <PanelBody className="p-4">
-                  <SystemLabel>{ordinal(p.id)} // Archive</SystemLabel>
+                  <SystemLabel>{`${ordinal(p.id)} // Archive`}</SystemLabel>
                   <Link href={`/blog/${p.slug}`} className="mt-2 block font-ui font-bold text-portal-text hover:text-portal-orange">
                     {p.title}
                   </Link>

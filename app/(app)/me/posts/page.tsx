@@ -31,7 +31,7 @@ export default async function MyPostsPage() {
     <div className="container mx-auto space-y-8 px-4 py-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <SystemLabel tone="orange">003 // Personal Archive</SystemLabel>
+          <SystemLabel tone="orange">{"003 // Personal Archive"}</SystemLabel>
           <h1 className="font-hero text-5xl font-bold uppercase tracking-tighter text-portal-text">My Posts</h1>
           <p className="text-sm text-portal-text-muted">Every signal you've broadcast, every draft you've started.</p>
         </div>
@@ -60,7 +60,7 @@ export default async function MyPostsPage() {
               <Panel key={status}>
                 <PanelHeader>
                   <div className="flex items-center gap-3">
-                    <SystemLabel tone="orange">// {status}</SystemLabel>
+                    <SystemLabel tone="orange">{`// ${status}`}</SystemLabel>
                     <span className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text">
                       {status} ({grouped[status]!.length})
                     </span>

@@ -32,7 +32,7 @@ export default async function AdminHomePage() {
   return (
     <div className="container mx-auto space-y-8 px-4 py-10">
       <div className="space-y-2">
-        <SystemLabel tone="orange">005 // Admin Console</SystemLabel>
+        <SystemLabel tone="orange">{"005 // Admin Console"}</SystemLabel>
         <h1 className="font-hero text-5xl font-bold uppercase tracking-tighter text-portal-text">Command Center</h1>
         <p className="text-sm text-portal-text-muted">Manage the team blog portal.</p>
       </div>
@@ -54,7 +54,7 @@ export default async function AdminHomePage() {
               className="group rounded-panel border-2 border-portal-border-soft bg-portal-panel-raised p-6 shadow-portal transition-all hover:-translate-y-0.5 hover:border-portal-border-main hover:shadow-glow"
             >
               <div className="mb-3 flex items-center justify-between">
-                <SystemLabel tone="orange">{s.code} // {s.title}</SystemLabel>
+                <SystemLabel tone="orange">{`${s.code} // ${s.title}`}</SystemLabel>
                 <Icon className="h-4 w-4 text-portal-text-muted group-hover:text-portal-orange" />
               </div>
               <h2 className="font-hero text-xl font-bold uppercase tracking-tighter text-portal-text group-hover:text-portal-orange">

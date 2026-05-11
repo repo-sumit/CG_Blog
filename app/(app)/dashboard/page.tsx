@@ -68,7 +68,7 @@ export default async function DashboardPage() {
       <Panel variant="bright" pattern="grid" className="relative">
         <div className="p-8 sm:p-12 space-y-6">
           <div className="flex items-center justify-between">
-            <SystemLabel tone="orange">001 // Welcome Back</SystemLabel>
+            <SystemLabel tone="orange">{"001 // Welcome Back"}</SystemLabel>
             <JapaneseLabel className="hidden sm:inline">ポータル · 通信</JapaneseLabel>
           </div>
           <h1 className="font-hero text-4xl font-bold uppercase tracking-tighter text-portal-text sm:text-6xl">
@@ -104,7 +104,7 @@ export default async function DashboardPage() {
             <Panel>
               <PanelHeader>
                 <div>
-                  <SystemLabel tone="orange">002 // Your Week</SystemLabel>
+                  <SystemLabel tone="orange">{"002 // Your Week"}</SystemLabel>
                   <div className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text mt-1">
                     Author Status
                   </div>
@@ -136,7 +136,7 @@ export default async function DashboardPage() {
             <Panel>
               <PanelHeader>
                 <div>
-                  <SystemLabel tone="orange">004 // Review Queue</SystemLabel>
+                  <SystemLabel tone="orange">{"004 // Review Queue"}</SystemLabel>
                   <div className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text mt-1">
                     Awaiting Approval
                   </div>
@@ -174,7 +174,7 @@ export default async function DashboardPage() {
           <Panel>
             <PanelHeader>
               <div>
-                <SystemLabel tone="orange">005 // This Week</SystemLabel>
+                <SystemLabel tone="orange">{"005 // This Week"}</SystemLabel>
                 <div className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text mt-1">
                   Active Transmissions
                 </div>
@@ -210,7 +210,7 @@ export default async function DashboardPage() {
             <Panel>
               <PanelHeader>
                 <div>
-                  <SystemLabel tone="orange">006 // Completion</SystemLabel>
+                  <SystemLabel tone="orange">{"006 // Completion"}</SystemLabel>
                   <div className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text mt-1">
                     <AlertCircle className="inline h-4 w-4 mr-2 text-portal-yellow" />
                     Weekly Score

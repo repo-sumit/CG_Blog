@@ -46,7 +46,7 @@ export default async function LoginPage({
               <BrandLockup size="lg" />
 
               <div className="space-y-4">
-                <SystemLabel tone="orange">001 // PORTAL ENTRY</SystemLabel>
+                <SystemLabel tone="orange">{"001 // PORTAL ENTRY"}</SystemLabel>
                 <h1 className="font-hero text-5xl font-bold uppercase leading-none tracking-tighter text-portal-text sm:text-6xl lg:text-7xl">
                   The Team
                   <br />

@@ -38,7 +38,7 @@ export default async function BlogPage({ searchParams }: { searchParams: SearchP
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <SystemLabel tone="orange">002 // Signal Feed</SystemLabel>
+            <SystemLabel tone="orange">{"002 // Signal Feed"}</SystemLabel>
             <JapaneseLabel>記事</JapaneseLabel>
           </div>
           <h1 className="font-hero text-5xl font-bold uppercase tracking-tighter text-portal-text sm:text-6xl">

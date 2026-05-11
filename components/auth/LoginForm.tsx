@@ -76,7 +76,7 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
     <Panel variant="bright" className="w-full">
       <PanelHeader>
         <div className="flex flex-col">
-          <SystemLabel tone="orange">002 // SIGN IN</SystemLabel>
+          <SystemLabel tone="orange">{"002 // SIGN IN"}</SystemLabel>
           <div className="font-hero text-2xl font-bold uppercase tracking-tighter text-portal-text mt-1">
             Authenticate
           </div>

@@ -39,7 +39,7 @@ export function PostCard({ post }: { post: PostWithAuthor }) {
           />
           <div aria-hidden className="absolute inset-0 grid-overlay-sm opacity-50" />
           <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
-            <SystemLabel tone="orange">{ordinal(post.id)} // {primaryTag}</SystemLabel>
+            <SystemLabel tone="orange">{`${ordinal(post.id)} // ${primaryTag}`}</SystemLabel>
             <span className="inline-flex items-center gap-1.5 text-portal-text-muted">
               {m.image && <ImageIcon className="h-3.5 w-3.5" aria-label="image" />}
               {m.video && <Video className="h-3.5 w-3.5" aria-label="video" />}

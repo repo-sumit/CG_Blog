@@ -22,7 +22,7 @@ export function WeeklyScheduleCard({ team, postsByAuthorThisWeek }: Props) {
     <Panel>
       <PanelHeader>
         <div>
-          <SystemLabel tone="orange">003 // Schedule</SystemLabel>
+          <SystemLabel tone="orange">{"003 // Schedule"}</SystemLabel>
           <div className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text mt-1">
             <CalendarCheck2 className="inline h-4 w-4 mr-2 text-portal-orange" />
             Weekly Slot Map
