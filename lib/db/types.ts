@@ -89,12 +89,27 @@ export type Database = {
   public: {
     Tables: Record<string, { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown> }>;
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      assign_weekday: {
+        Args: { p_user_id: string; p_weekday: number | null };
+        Returns: undefined;
+      };
+      bootstrap_profile: {
+        Args: Record<string, never>;
+        Returns: unknown;
+      };
+      is_convegenius_user: { Args: Record<string, never>; Returns: boolean };
+      is_manager: { Args: Record<string, never>; Returns: boolean };
+      current_user_role: { Args: Record<string, never>; Returns: AppRole };
+      is_author_or_manager: { Args: Record<string, never>; Returns: boolean };
+      is_authorized_author: { Args: Record<string, never>; Returns: boolean };
+    };
     Enums: {
       app_role: AppRole;
       post_status: PostStatus;
       media_type: MediaType;
       media_source_type: MediaSourceType;
     };
+    CompositeTypes: Record<string, never>;
   };
 };

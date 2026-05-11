@@ -47,13 +47,14 @@ values (
 )
 on conflict do nothing;
 
--- Allowlist seed — adjust to your real team and re-run.
--- Manager email is also added via the application's role-resolution on first sign-in,
--- but seeding here makes the manager visible in /admin/users immediately.
+-- Allowlist seed — ConveGenius team.
+-- The auth callback also reconciles APP_MANAGER_EMAIL / APP_AUTHOR_EMAILS into
+-- this table on each sign-in, but seeding here makes everyone visible in
+-- /admin/users immediately, even before they've signed in for the first time.
 insert into public.authorized_users (email, role, weekly_post_day) values
-  ('manager@convegenius.ai',  'manager', 1),
-  ('author1@convegenius.ai',  'author',  2),
-  ('author2@convegenius.ai',  'author',  3),
-  ('author3@convegenius.ai',  'author',  4),
-  ('author4@convegenius.ai',  'author',  5)
+  ('sumit.kumar@convegenius.ai',   'manager', 1),  -- Monday
+  ('aditya.c@convegenius.ai',      'author',  2),  -- Tuesday
+  ('om.kumar@convegenius.ai',      'author',  3),  -- Wednesday
+  ('insha.naseem@convegenius.ai',  'author',  4),  -- Thursday
+  ('aryan.singh@convegenius.ai',   'author',  5)   -- Friday
 on conflict (email) do nothing;
