@@ -77,7 +77,7 @@ export async function listPublicPosts(limit = 30): Promise<PublicPost[]> {
     console.error("[listPublicPosts]", error);
     return [];
   }
-  return (data ?? []).map((r) => normalize(r as Record<string, unknown>));
+  return (data ?? []).map((r: unknown) => normalize(r as Record<string, unknown>));
 }
 
 export async function getPublicPostBySlug(slug: string): Promise<PublicPost | null> {
@@ -106,7 +106,12 @@ export async function listPublicTags(): Promise<{ id: string; name: string; slug
   }
   const seen = new Map<string, { id: string; name: string; slug: string }>();
   for (const row of data ?? []) {
-    const t = (row as { tag?: { id?: string; name?: string; slug?: string } }).tag;
+    // Supabase may type joined relations as arrays even when they're singletons.
+    // Cast through `unknown` to bypass the overlap check, then normalize.
+    const raw = (row as unknown as {
+      tag?: { id?: string; name?: string; slug?: string } | { id?: string; name?: string; slug?: string }[] | null;
+    }).tag;
+    const t = Array.isArray(raw) ? raw[0] : raw;
     if (t?.id && t.name && t.slug && !seen.has(t.id)) {
       seen.set(t.id, { id: t.id, name: t.name, slug: t.slug });
     }
@@ -124,7 +129,10 @@ export async function listPublicAuthors(): Promise<PublicAuthor[]> {
   if (error) return [];
   const seen = new Map<string, PublicAuthor>();
   for (const row of data ?? []) {
-    const a = (row as { author?: PublicAuthor | null }).author;
+    // Supabase types FK joins as arrays even when the relationship is
+    // singleton; at runtime it's a single object. Normalize both shapes.
+    const raw = (row as unknown as { author?: PublicAuthor | PublicAuthor[] | null }).author;
+    const a = Array.isArray(raw) ? raw[0] : raw;
     if (a?.id && !seen.has(a.id)) seen.set(a.id, a);
   }
   return Array.from(seen.values());
