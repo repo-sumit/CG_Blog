@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/auth/guards";
+import { safeRedirectPath } from "@/lib/auth/safeRedirect";
 import LoginForm from "@/components/auth/LoginForm";
 import { BrandLockup } from "@/components/portal/BrandLockup";
 
@@ -11,13 +12,13 @@ export default async function LoginPage({
 }: {
   searchParams: { redirect?: string; error?: string; code?: string };
 }) {
+  const safeRedirect = safeRedirectPath(searchParams.redirect, "/dashboard");
   if (searchParams.code) {
-    const params = new URLSearchParams({ code: searchParams.code });
-    if (searchParams.redirect) params.set("redirect", searchParams.redirect);
+    const params = new URLSearchParams({ code: searchParams.code, redirect: safeRedirect });
     redirect(`/api/auth/callback?${params.toString()}`);
   }
   const ctx = await getSessionContext();
-  if (ctx) redirect(searchParams.redirect ?? "/dashboard");
+  if (ctx) redirect(safeRedirect);
 
   return (
     <main className="relative min-h-screen">
@@ -43,10 +44,7 @@ export default async function LoginPage({
           </div>
 
           {/* Sign-in card */}
-          <LoginForm
-            redirectTo={searchParams.redirect ?? "/dashboard"}
-            initialError={searchParams.error}
-          />
+          <LoginForm redirectTo={safeRedirect} initialError={searchParams.error} />
         </div>
 
         <div className="mt-10 text-center text-[11px] uppercase tracking-wider text-portal-text-muted">

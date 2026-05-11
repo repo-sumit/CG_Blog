@@ -122,9 +122,10 @@ export async function toggleReaction(input: { postId: string; emoji: ReactionEmo
     return { ok: false, error: "Reactions are only allowed on published posts." };
   }
 
-  // Check if the user already reacted with this emoji — if so, remove it.
-  // Otherwise insert. UNIQUE(post, user, emoji) makes this safe even under
-  // concurrent toggles.
+  // Toggle: check-then-act. A real concurrent double-click could see two reads
+  // both miss the row, both try to insert, and the second hits a unique-key
+  // violation (postgres error code 23505). Treat that as "the other one won"
+  // — the user's reaction is now recorded either way, no need to error out.
   const { data: existing } = await service
     .from("reactions")
     .select("id")
@@ -142,7 +143,11 @@ export async function toggleReaction(input: { postId: string; emoji: ReactionEmo
       user_id: userId,
       emoji: parsed.data.emoji,
     });
-    if (error) return { ok: false, error: error.message };
+    // 23505 = unique_violation. Means another concurrent insert beat us to it;
+    // the reaction exists exactly once — exactly the state the user wanted.
+    if (error && (error as { code?: string }).code !== "23505") {
+      return { ok: false, error: error.message };
+    }
   }
 
   revalidatePath(`/posts/${(post as { slug: string }).slug}`);

@@ -77,8 +77,15 @@ export async function POST(request: NextRequest) {
   if (row) {
     const unsubscribeUrl = `${publicEnv.appUrl}/api/subscribe/unsubscribe?t=${row.unsubscribe_token}`;
     const tpl = welcomeTemplate({ appUrl: publicEnv.appUrl, unsubscribeUrl });
+    // List-Unsubscribe headers per RFC 8058 — Gmail/Yahoo/Outlook now require
+    // these for bulk senders to avoid the spam folder and to render the inbox
+    // "Unsubscribe" link. `One-Click` tells them they can POST without UI.
+    const headers = {
+      "List-Unsubscribe": `<${unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    };
     // Don't block the response on email delivery — log and move on.
-    sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text }).then((res) => {
+    sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text, headers }).then((res) => {
       if (!res.ok) console.error("[/api/subscribe] welcome email failed", res.error);
     });
   }

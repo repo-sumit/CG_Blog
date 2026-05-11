@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { serverEnv } from "@/lib/env";
+import { safeRedirectPath } from "@/lib/auth/safeRedirect";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,7 +9,10 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const redirectPath = url.searchParams.get("redirect") ?? "/dashboard";
+  // SECURITY: any same-origin path is fine; anything else falls back. Without
+  // this, an attacker could craft /login?redirect=https://evil.example.com to
+  // turn our auth flow into an open redirect (classic phishing pivot).
+  const redirectPath = safeRedirectPath(url.searchParams.get("redirect"), "/dashboard");
   const supabase = createSupabaseServerClient();
 
   if (code) {

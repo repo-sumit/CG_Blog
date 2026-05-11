@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { REACTION_EMOJIS, type ReactionEmoji } from "@/lib/reactions";
+import { REACTION_EMOJIS, REACTION_LABELS, type ReactionEmoji } from "@/lib/reactions";
 import { toggleReaction } from "@/app/posts/[slug]/actions";
 import { cn } from "@/lib/utils/cn";
 
@@ -78,7 +78,7 @@ export function ReactionsBar({ postId, postSlug, counts, myReactions, isAuthenti
             onClick={() => click(e)}
             disabled={pending}
             aria-pressed={reacted}
-            aria-label={`React with ${e}`}
+            aria-label={`${reacted ? "Remove" : "Add"} ${REACTION_LABELS[e]} reaction — ${count} so far`}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 transition-colors",
               reacted
@@ -88,7 +88,7 @@ export function ReactionsBar({ postId, postSlug, counts, myReactions, isAuthenti
             )}
           >
             <span aria-hidden className="text-base leading-none">{e}</span>
-            <span className="font-ui text-[11px] tabular-nums">{count}</span>
+            <span aria-hidden className="font-ui text-[11px] tabular-nums">{count}</span>
           </button>
         );
       })}

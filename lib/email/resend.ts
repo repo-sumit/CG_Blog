@@ -21,6 +21,8 @@ export interface SendEmailInput {
   text?: string;
   /** Optional reply-to override. */
   replyTo?: string;
+  /** Raw email headers to merge in (e.g. List-Unsubscribe per RFC 8058). */
+  headers?: Record<string, string>;
 }
 
 export interface SendEmailResult {
@@ -30,7 +32,7 @@ export interface SendEmailResult {
   error?: string;
 }
 
-export async function sendEmail({ to, subject, html, text, replyTo }: SendEmailInput): Promise<SendEmailResult> {
+export async function sendEmail({ to, subject, html, text, replyTo, headers }: SendEmailInput): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM;
   if (!apiKey || !from) {
@@ -51,6 +53,7 @@ export async function sendEmail({ to, subject, html, text, replyTo }: SendEmailI
         html,
         text,
         reply_to: replyTo,
+        headers,
       }),
     });
 

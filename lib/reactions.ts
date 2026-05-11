@@ -4,3 +4,13 @@
 
 export const REACTION_EMOJIS = ["👍", "❤️", "😂", "🎉", "👀", "🚀"] as const;
 export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
+
+/** Human-readable name for each reaction — used for aria-labels. */
+export const REACTION_LABELS: Record<ReactionEmoji, string> = {
+  "👍": "Thumbs up",
+  "❤️": "Love",
+  "😂": "Laugh",
+  "🎉": "Celebrate",
+  "👀": "Eyes",
+  "🚀": "Rocket",
+};

@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   "/unauthorized",
   "/api/auth/callback",
   "/api/media/file",     // signed-URL re-sign: needed for public media playback
+  "/api/subscribe",      // newsletter signup + unsubscribe (anonymous)
   "/favicon.ico",
   "/google.svg",
 ];

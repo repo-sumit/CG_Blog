@@ -104,7 +104,18 @@ export async function GET(request: NextRequest) {
       weekLabel,
     });
     if (!tpl) continue;
-    const res = await sendEmail({ to: sub.email, subject: tpl.subject, html: tpl.html, text: tpl.text });
+    // RFC 8058 List-Unsubscribe headers — required by Gmail/Yahoo/Outlook bulk
+    // sender rules. Each recipient gets THEIR token, never anyone else's.
+    const res = await sendEmail({
+      to: sub.email,
+      subject: tpl.subject,
+      html: tpl.html,
+      text: tpl.text,
+      headers: {
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+    });
     if (res.ok) sent++;
     else failures.push({ email: sub.email, error: res.error ?? "unknown" });
   }
