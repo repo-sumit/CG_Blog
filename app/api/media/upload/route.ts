@@ -7,7 +7,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const BUCKET = "blog-media";
-const SIGNED_TTL = 60 * 60 * 24 * 7; // 7 days
 
 export async function POST(request: NextRequest) {
   const supabase = createSupabaseServerClient();
@@ -50,13 +49,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: upErr.message }, { status: 500 });
   }
 
-  const { data: signed, error: signErr } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(path, SIGNED_TTL);
-  if (signErr || !signed) {
-    return NextResponse.json({ error: signErr?.message ?? "Failed to sign URL" }, { status: 500 });
-  }
-
   // Record asset.
   await supabase.from("media_assets").insert({
     owner_id: user.id,
@@ -70,10 +62,13 @@ export async function POST(request: NextRequest) {
     title: file.name,
   });
 
+  // Return a STABLE internal URL. /api/media/file re-signs the storage path
+  // on every request, so embedded media keeps playing forever (no 7-day TTL).
+  const stableUrl = `/api/media/file?path=${encodeURIComponent(path)}`;
   return NextResponse.json({
     ok: true,
     path,
-    signedUrl: signed.signedUrl,
+    signedUrl: stableUrl,
     mediaType: v.mediaType,
   });
 }

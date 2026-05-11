@@ -149,3 +149,9 @@ E2E covers unauthenticated redirect, login page render, and the unauthorized pag
 - Editor doesn't yet support slash-command or callout blocks (could be added with custom Tiptap nodes).
 - Search uses Postgres `ilike`; switch to `to_tsvector` / `tsvector` columns if the corpus grows.
 - Comment moderation, reactions, view counts: all optional and not built in this MVP.
+
+## Media playback architecture
+
+Uploaded video/audio/images are stored in the private `blog-media` Supabase bucket. The editor embeds media via **`/api/media/file?path=…`** — an internal route that re-signs the storage path on every request (1-hour TTL, browser-cached for 50 minutes). This means embedded media never expires, even years after a post is published.
+
+Access is gated by domain membership (middleware) — storage paths use unguessable UUIDs and are only referenced from posts visible to the user via RLS. External video embeds (YouTube/Vimeo/Loom/Drive) are inserted as iframes from a strict allow-list and survive the HTML sanitizer.

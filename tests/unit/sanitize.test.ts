@@ -12,8 +12,20 @@ describe("sanitizeHtml", () => {
     const out = sanitizeHtml(`<a href="javascript:alert(1)">x</a>`);
     expect(out).not.toContain("javascript:");
   });
-  it("strips iframes", () => {
-    expect(sanitizeHtml("<iframe src='evil'></iframe>")).toBe("");
+  it("strips iframes with non-allowlisted src", () => {
+    expect(sanitizeHtml("<iframe src='https://evil.example.com/x'></iframe>")).toBe("");
+    expect(sanitizeHtml("<iframe src=\"javascript:alert(1)\"></iframe>")).toBe("");
+  });
+  it("keeps iframes from allowlisted embed providers", () => {
+    const out = sanitizeHtml('<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>');
+    expect(out).toContain("youtube.com/embed/dQw4w9WgXcQ");
+    expect(out).toContain("<iframe");
+  });
+  it("strips event handlers from kept iframes", () => {
+    const out = sanitizeHtml(
+      '<iframe src="https://player.vimeo.com/video/123" onload="alert(1)"></iframe>',
+    );
+    expect(out).not.toContain("onload");
   });
   it("keeps benign markup", () => {
     const out = sanitizeHtml(`<p><strong>Hi</strong> <a href="https://example.com">link</a></p>`);
