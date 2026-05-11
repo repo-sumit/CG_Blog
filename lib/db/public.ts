@@ -1,6 +1,12 @@
 import "server-only";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { PostRow, ProfileRow, TagRow } from "@/lib/db/types";
+import { REACTION_EMOJIS, type ReactionEmoji } from "@/lib/reactions";
+
+// Re-export the reaction constants so existing callers of `@/lib/db/public`
+// keep working. The real definition is in `@/lib/reactions` (no server-only),
+// which lets client components import it without tainting their bundle.
+export { REACTION_EMOJIS, type ReactionEmoji } from "@/lib/reactions";
 
 /**
  * Public reading layer. These helpers use the service-role client so anyone
@@ -152,9 +158,6 @@ export async function listComments(postId: string): Promise<PublicComment[]> {
   }
   return (data ?? []) as unknown as PublicComment[];
 }
-
-export const REACTION_EMOJIS = ["👍", "❤️", "😂", "🎉", "👀", "🚀"] as const;
-export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
 
 export async function listReactionCounts(postId: string): Promise<Record<ReactionEmoji, number>> {
   const service = createSupabaseServiceClient();

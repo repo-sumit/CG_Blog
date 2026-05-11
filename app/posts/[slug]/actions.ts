@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth/guards";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import { REACTION_EMOJIS, type ReactionEmoji } from "@/lib/db/public";
+import { REACTION_EMOJIS, type ReactionEmoji } from "@/lib/reactions";
 import { isManager } from "@/lib/auth/roles";
 
 // ------------------------------------------------------------------

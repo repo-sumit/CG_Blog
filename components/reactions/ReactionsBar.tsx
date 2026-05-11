@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { REACTION_EMOJIS, type ReactionEmoji } from "@/lib/db/public";
+import { REACTION_EMOJIS, type ReactionEmoji } from "@/lib/reactions";
 import { toggleReaction } from "@/app/posts/[slug]/actions";
 import { cn } from "@/lib/utils/cn";
 
