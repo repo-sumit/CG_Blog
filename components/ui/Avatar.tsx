@@ -9,9 +9,9 @@ export interface AvatarProps {
 }
 
 const SIZE: Record<NonNullable<AvatarProps["size"]>, string> = {
-  sm: "h-7 w-7 text-xs",
-  md: "h-9 w-9 text-sm",
-  lg: "h-12 w-12 text-base",
+  sm: "h-7 w-7 text-[10px]",
+  md: "h-9 w-9 text-xs",
+  lg: "h-12 w-12 text-sm",
 };
 
 export function Avatar({ src, name, email, size = "md", className }: AvatarProps) {
@@ -24,19 +24,23 @@ export function Avatar({ src, name, email, size = "md", className }: AvatarProps
     .join("") || "?";
 
   if (src) {
+    // eslint-disable-next-line @next/next/no-img-element
     return (
-      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={label}
-        className={cn("inline-block rounded-full object-cover ring-1 ring-border", SIZE[size], className)}
+        className={cn(
+          "inline-block rounded-pill object-cover border-2 border-portal-border-soft",
+          SIZE[size],
+          className,
+        )}
       />
     );
   }
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center rounded-full bg-primary/10 text-primary font-semibold ring-1 ring-border",
+        "inline-flex items-center justify-center rounded-pill border-2 border-portal-border-soft bg-portal-panel-raised font-ui font-bold uppercase text-portal-text",
         SIZE[size],
         className,
       )}

@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import Image from "next/image";
 import { Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Panel, PanelBody, PanelHeader } from "@/components/portal/Panel";
+import { SystemLabel } from "@/components/portal/SystemLabel";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isValidDomain } from "@/lib/auth/roles";
 import { publicEnv } from "@/lib/env";
@@ -43,7 +43,7 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
       });
       if (error) throw error;
       setSent(true);
-      toast.success("Check your inbox for the sign-in link.");
+      toast.success("Signal sent — check your inbox.");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to send magic link.";
       setError(msg);
@@ -73,14 +73,18 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Sign in</CardTitle>
-        <CardDescription>
-          Use your ConveGenius.ai email. Access is limited to authorized team members.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Panel variant="bright" className="w-full">
+      <PanelHeader>
+        <div className="flex flex-col">
+          <SystemLabel tone="orange">002 // SIGN IN</SystemLabel>
+          <div className="font-hero text-2xl font-bold uppercase tracking-tighter text-portal-text mt-1">
+            Authenticate
+          </div>
+        </div>
+        <SystemLabel dot tone="green">Active</SystemLabel>
+      </PanelHeader>
+
+      <PanelBody className="space-y-5">
         <Button
           type="button"
           variant="outline"
@@ -89,31 +93,31 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
           disabled={oauthing}
         >
           {oauthing ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <Image src="/google.svg" alt="" width={18} height={18} className="mr-2" />
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src="/google.svg" alt="" width={16} height={16} />
           )}
           Continue with Google
         </Button>
 
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-border" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase tracking-wider">
-            <span className="bg-card px-2 text-muted-foreground">or magic link</span>
-          </div>
+        <div className="flex items-center gap-3">
+          <div className="h-px flex-1 bg-portal-border-soft" />
+          <SystemLabel>or magic link</SystemLabel>
+          <div className="h-px flex-1 bg-portal-border-soft" />
         </div>
 
         {sent ? (
-          <div className="rounded-lg border bg-muted/40 p-4 text-sm">
-            <Mail className="inline h-4 w-4 mr-2 align-text-bottom" />
-            We sent a sign-in link to <span className="font-medium">{email}</span>. Open it from the same browser.
+          <div className="rounded-md border-2 border-portal-green/30 bg-portal-green/5 p-4">
+            <SystemLabel tone="green" dot className="mb-1">Transmission Sent</SystemLabel>
+            <div className="text-sm text-portal-text">
+              Open the sign-in link from <span className="text-portal-text font-bold">{email}</span> in this browser.
+            </div>
           </div>
         ) : (
           <form onSubmit={handleMagicLink} className="space-y-3">
             <label className="block">
-              <span className="text-sm font-medium">Email</span>
+              <SystemLabel className="mb-2 block">Email</SystemLabel>
               <Input
                 type="email"
                 autoComplete="email"
@@ -121,26 +125,28 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
                 placeholder={`you@${ALLOWED_DOMAIN}`}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1"
               />
             </label>
             <Button type="submit" className="w-full" disabled={sending}>
-              {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-              Send magic link
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              Send Magic Link
             </Button>
           </form>
         )}
 
         {error && (
-          <p className="text-sm text-destructive" role="alert">
+          <div
+            role="alert"
+            className="rounded-md border-2 border-portal-red/40 bg-portal-red/5 p-3 text-sm text-portal-red"
+          >
             {decodeURIComponent(error)}
-          </p>
+          </div>
         )}
 
-        <p className="text-xs text-muted-foreground text-center pt-2">
-          Domain hint: use your <span className="font-medium">@{ALLOWED_DOMAIN}</span> address.
-        </p>
-      </CardContent>
-    </Card>
+        <div className="border-t-2 border-portal-border-soft pt-3 text-center">
+          <SystemLabel>Hint: use your @{ALLOWED_DOMAIN} address</SystemLabel>
+        </div>
+      </PanelBody>
+    </Panel>
   );
 }

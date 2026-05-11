@@ -6,11 +6,13 @@ const config: Config = {
   theme: {
     container: {
       center: true,
-      padding: "1rem",
-      screens: { "2xl": "1280px" },
+      padding: { DEFAULT: "1rem", lg: "2rem" },
+      screens: { "2xl": "1360px" },
     },
     extend: {
+      // -------- Portal-direct tokens (read CSS vars; sharable everywhere) --------
       colors: {
+        // shadcn / theme aliases — driven by HSL vars in globals.css
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -48,23 +50,55 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+
+        // Direct portal palette (use these for portal-specific surfaces)
+        portal: {
+          main: "var(--bg-main)",
+          page: "var(--bg-page)",
+          panel: "var(--bg-panel)",
+          "panel-raised": "var(--bg-panel-raised)",
+          "panel-soft": "var(--bg-panel-soft)",
+          inverse: "var(--bg-inverse)",
+          text: "var(--text-main)",
+          "text-muted": "var(--text-muted)",
+          "text-soft": "var(--text-soft)",
+          "border-main": "var(--border-main)",
+          "border-muted": "var(--border-muted)",
+          "border-soft": "var(--border-soft)",
+          orange: "var(--accent-orange)",
+          blue: "var(--accent-blue)",
+          green: "var(--accent-green)",
+          yellow: "var(--accent-yellow)",
+          red: "var(--accent-red)",
+        },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        xs: "var(--radius-xs)",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        panel: "var(--radius-panel)",
+        pill: "var(--radius-pill)",
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
-        serif: ["var(--font-serif)", "Georgia", "serif"],
+        ui: ["var(--font-ui)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        hero: ["var(--font-hero)", "system-ui", "sans-serif"],
+        sans: ["var(--font-ui)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
-      typography: {
-        DEFAULT: {
-          css: {
-            "--tw-prose-body": "hsl(var(--foreground))",
-            "--tw-prose-headings": "hsl(var(--foreground))",
-          },
-        },
+      letterSpacing: {
+        tighter: "-0.04em",
+        label: "0.18em",
+        wider: "0.12em",
+      },
+      boxShadow: {
+        portal: "var(--shadow-panel)",
+        soft: "var(--shadow-soft)",
+        glow: "var(--shadow-glow)",
       },
     },
   },

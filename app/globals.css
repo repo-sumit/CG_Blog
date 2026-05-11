@@ -2,107 +2,310 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Dark Portal design tokens
+   Source of truth for the CG Signal redesign.
+   ============================================================ */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 24% 11%;
+    /* Surfaces ------------------------------------------------ */
+    --bg-main: #08090d;
+    --bg-page: #0b0d12;
+    --bg-panel: #11141b;
+    --bg-panel-raised: #171b24;
+    --bg-panel-soft: #0f1218;
+    --bg-inverse: #f4f0df;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 24% 11%;
+    /* Text ---------------------------------------------------- */
+    --text-main: #f5f1e8;
+    --text-muted: #a8a294;
+    --text-soft: #6f6a5f;
+    --text-inverse: #111111;
 
-    --border: 220 14% 91%;
-    --input: 220 14% 91%;
-    --ring: 222 84% 56%;
+    /* Borders ------------------------------------------------- */
+    --border-main: #f5f1e8;
+    --border-muted: #373c49;
+    --border-soft: #252a35;
+    --border-glow: rgba(245, 241, 232, 0.28);
 
-    --primary: 222 84% 56%;
-    --primary-foreground: 0 0% 100%;
+    /* Accents ------------------------------------------------- */
+    --accent-orange: #ff5a1f;
+    --accent-blue: #4f8cff;
+    --accent-green: #35d07f;
+    --accent-yellow: #ffd166;
+    --accent-red: #ff4d5e;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 24% 11%;
+    /* Patterns ------------------------------------------------ */
+    --pixel-dark: #08090d;
+    --pixel-light: #f5f1e8;
+    --grid-line: rgba(245, 241, 232, 0.08);
+    --noise-opacity: 0.055;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    /* Shadows ------------------------------------------------- */
+    --shadow-soft: 0 18px 50px rgba(0, 0, 0, 0.42);
+    --shadow-panel: 0 12px 32px rgba(0, 0, 0, 0.32);
+    --shadow-glow: 0 0 0 1px rgba(245, 241, 232, 0.08),
+                   0 18px 60px rgba(79, 140, 255, 0.12);
 
-    --accent: 220 14% 96%;
-    --accent-foreground: 222 24% 11%;
+    /* Radii --------------------------------------------------- */
+    --radius-xs: 8px;
+    --radius-sm: 12px;
+    --radius-md: 16px;
+    --radius-lg: 20px;
+    --radius-panel: 24px;
+    --radius-xl: 32px;
+    --radius-pill: 999px;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    /* Tracking ------------------------------------------------ */
+    --tracking-tight: -0.04em;
+    --tracking-label: 0.18em;
+    --tracking-wide: 0.12em;
 
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
+    /* Leading ------------------------------------------------- */
+    --leading-hero: 0.88;
+    --leading-title: 0.95;
+    --leading-body: 1.65;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    /* ---- shadcn/Tailwind theme aliases (HSL-compatible) ----
+       Kept so existing components built on the previous palette
+       (Badge variants, primary/secondary/etc.) re-render in
+       portal colors without rewriting every className. */
+    --background: 220 20% 5%;
+    --foreground: 40 30% 94%;
 
-    --radius: 0.75rem;
-    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    --card: 222 22% 9%;
+    --card-foreground: 40 30% 94%;
+
+    --popover: 222 22% 9%;
+    --popover-foreground: 40 30% 94%;
+
+    --primary: 220 100% 65%;            /* accent blue */
+    --primary-foreground: 220 20% 5%;
+
+    --secondary: 222 18% 14%;
+    --secondary-foreground: 40 30% 94%;
+
+    --muted: 222 18% 14%;
+    --muted-foreground: 40 8% 64%;
+
+    --accent: 16 100% 56%;              /* accent orange */
+    --accent-foreground: 220 20% 5%;
+
+    --destructive: 354 100% 65%;
+    --destructive-foreground: 220 20% 5%;
+
+    --success: 148 60% 51%;
+    --success-foreground: 220 20% 5%;
+
+    --warning: 41 100% 70%;
+    --warning-foreground: 220 20% 5%;
+
+    --border: 222 14% 25%;              /* border-muted */
+    --input: 222 14% 25%;
+    --ring: 220 100% 65%;
+
+    --radius: var(--radius-panel);
   }
 
-  .dark {
-    --background: 222 24% 8%;
-    --foreground: 210 20% 96%;
-    --card: 222 22% 11%;
-    --card-foreground: 210 20% 96%;
-    --border: 222 16% 22%;
-    --input: 222 16% 22%;
-    --ring: 217 91% 60%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 24% 8%;
-    --secondary: 222 22% 14%;
-    --secondary-foreground: 210 20% 96%;
-    --muted: 222 22% 14%;
-    --muted-foreground: 217 10% 64%;
-    --accent: 222 22% 14%;
-    --accent-foreground: 210 20% 96%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+  /* Force-dark — the design only ships in dark mode. */
+  html {
+    color-scheme: dark;
   }
 
   * {
     @apply border-border;
   }
+
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: var(--font-sans);
+    background: var(--bg-main);
+    color: var(--text-main);
+    font-family: var(--font-ui), ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-feature-settings: "ss01", "ss02";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
+
   ::selection {
-    @apply bg-primary/20;
+    background: var(--accent-orange);
+    color: var(--bg-main);
   }
 }
 
-/* Tiptap editor styles */
+/* ============================================================
+   Patterns + decorative utilities
+   ============================================================ */
+@layer utilities {
+  .grid-overlay {
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .grid-overlay-sm {
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+  .checker {
+    background-image:
+      linear-gradient(45deg, var(--pixel-light) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--pixel-light) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--pixel-light) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--pixel-light) 75%);
+    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    background-size: 12px 12px;
+    opacity: 0.12;
+  }
+  .concentric {
+    background:
+      repeating-radial-gradient(
+        circle,
+        rgba(245, 241, 232, 0.16) 0 1px,
+        transparent 1px 18px
+      );
+  }
+  .scanlines {
+    background-image: repeating-linear-gradient(
+      0deg,
+      rgba(245, 241, 232, 0.04) 0 1px,
+      transparent 1px 3px
+    );
+  }
+  .hero-gradient {
+    background:
+      radial-gradient(circle at 18% 22%, rgba(255, 90, 31, 0.18), transparent 32%),
+      radial-gradient(circle at 82% 28%, rgba(79, 140, 255, 0.16), transparent 38%),
+      var(--bg-panel);
+  }
+  .signal-glow {
+    box-shadow: 0 0 16px rgba(53, 208, 127, 0.55);
+  }
+
+  /* font helpers — these resolve to the CSS variables wired in app/layout.tsx */
+  .font-ui { font-family: var(--font-ui), ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .font-hero { font-family: var(--font-hero), system-ui, sans-serif; }
+
+  /* mono uppercase label (used everywhere) */
+  .system-label {
+    font-family: var(--font-ui), ui-monospace, monospace;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-label);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+}
+
+/* ============================================================
+   Components
+   ============================================================ */
+@layer components {
+  /* Signature panel — outlined dark card */
+  .portal-panel {
+    background: var(--bg-panel);
+    border: 2px solid var(--border-soft);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-panel);
+    overflow: hidden;
+  }
+  .portal-panel-raised {
+    background: var(--bg-panel-raised);
+    border: 2px solid var(--border-soft);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-panel);
+  }
+  .portal-panel-bright {
+    background: var(--bg-panel);
+    border: 2px solid var(--border-main);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-panel);
+  }
+
+  /* Pill ticker */
+  .portal-ticker {
+    border: 2px solid var(--border-main);
+    border-radius: var(--radius-pill);
+    padding: 10px 20px;
+    background: var(--bg-panel-soft);
+    color: var(--text-main);
+    font-family: var(--font-ui), ui-monospace, monospace;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  /* Signal dot */
+  .signal-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    animation: signalPulse 1.6s ease-in-out infinite;
+    box-shadow: 0 0 12px rgba(53, 208, 127, 0.6);
+  }
+  @keyframes signalPulse {
+    0%, 100% { opacity: 0.65; transform: scale(1); }
+    50%      { opacity: 1;    transform: scale(1.28); }
+  }
+
+  /* Ticker marquee */
+  .ticker-track {
+    display: inline-flex;
+    gap: 48px;
+    animation: tickerScroll 40s linear infinite;
+    padding-right: 48px;
+  }
+  @keyframes tickerScroll {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+}
+
+/* ============================================================
+   Tiptap editor — re-skinned for dark portal
+   ============================================================ */
 .ProseMirror {
-  @apply min-h-[420px] p-4 outline-none;
+  min-height: 420px;
+  padding: 20px 24px;
+  outline: none;
+  color: var(--text-main);
 }
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
-  @apply text-muted-foreground pointer-events-none float-left h-0;
+  color: var(--text-soft);
+  pointer-events: none;
+  float: left;
+  height: 0;
 }
-.ProseMirror h2 { @apply text-2xl font-semibold mt-6 mb-2; }
-.ProseMirror h3 { @apply text-xl font-semibold mt-5 mb-2; }
+.ProseMirror h2 { @apply text-2xl font-semibold mt-6 mb-2; font-family: var(--font-hero), system-ui, sans-serif; letter-spacing: var(--tracking-tight); }
+.ProseMirror h3 { @apply text-xl font-semibold mt-5 mb-2; font-family: var(--font-hero), system-ui, sans-serif; }
 .ProseMirror h4 { @apply text-lg font-semibold mt-4 mb-2; }
 .ProseMirror p  { @apply leading-7 my-3; }
 .ProseMirror ul { @apply list-disc pl-6 my-3; }
 .ProseMirror ol { @apply list-decimal pl-6 my-3; }
-.ProseMirror blockquote { @apply border-l-4 border-border pl-4 italic text-muted-foreground; }
-.ProseMirror code { @apply bg-muted px-1 py-0.5 rounded text-sm; }
-.ProseMirror pre  { @apply bg-muted p-3 rounded-lg overflow-x-auto text-sm; }
-.ProseMirror a { @apply text-primary underline underline-offset-2; }
-.ProseMirror img { @apply rounded-lg my-4 max-w-full h-auto; }
-.ProseMirror hr { @apply my-6 border-t; }
+.ProseMirror blockquote { border-left: 3px solid var(--accent-orange); padding-left: 16px; font-style: italic; color: var(--text-muted); }
+.ProseMirror code { background: var(--bg-panel-soft); border: 1px solid var(--border-soft); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+.ProseMirror pre  { background: var(--bg-panel-soft); border: 1px solid var(--border-soft); padding: 12px 16px; border-radius: var(--radius-md); overflow-x: auto; font-size: 13px; }
+.ProseMirror a { color: var(--accent-blue); text-decoration: underline; text-underline-offset: 2px; }
+.ProseMirror img { @apply rounded-lg my-4 max-w-full h-auto; border: 1px solid var(--border-soft); }
+.ProseMirror hr { border: none; border-top: 1px solid var(--border-muted); margin: 24px 0; }
 
 /* Reading article styles */
-.article-body { @apply text-[17px] leading-8 text-foreground; }
-.article-body h2 { @apply text-2xl font-semibold mt-8 mb-3; }
-.article-body h3 { @apply text-xl font-semibold mt-7 mb-2; }
+.article-body { color: var(--text-main); font-size: 17px; line-height: 1.75; }
+.article-body h2 { font-family: var(--font-hero), system-ui, sans-serif; @apply text-3xl font-semibold mt-10 mb-3; letter-spacing: var(--tracking-tight); }
+.article-body h3 { font-family: var(--font-hero), system-ui, sans-serif; @apply text-xl font-semibold mt-8 mb-2; }
 .article-body h4 { @apply text-lg font-semibold mt-6 mb-2; }
 .article-body p  { @apply my-4; }
 .article-body ul { @apply list-disc pl-6 my-4; }
 .article-body ol { @apply list-decimal pl-6 my-4; }
-.article-body blockquote { @apply border-l-4 border-primary/40 pl-4 italic text-muted-foreground my-4; }
-.article-body img, .article-body video, .article-body audio { @apply my-4 rounded-lg max-w-full; }
-.article-body a { @apply text-primary underline underline-offset-2; }
-.article-body code { @apply bg-muted px-1 py-0.5 rounded; }
-.article-body pre { @apply bg-muted p-3 rounded-lg overflow-x-auto; }
+.article-body blockquote { border-left: 3px solid var(--accent-orange); padding-left: 16px; font-style: italic; color: var(--text-muted); margin: 24px 0; }
+.article-body img, .article-body video, .article-body audio { @apply my-6 rounded-lg max-w-full; border: 1px solid var(--border-soft); }
+.article-body a { color: var(--accent-blue); text-decoration: underline; text-underline-offset: 2px; }
+.article-body code { background: var(--bg-panel-soft); border: 1px solid var(--border-soft); padding: 1px 6px; border-radius: 4px; }
+.article-body pre { background: var(--bg-panel-soft); border: 1px solid var(--border-soft); padding: 14px 18px; border-radius: var(--radius-md); overflow-x: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track, .signal-dot { animation: none; }
+}

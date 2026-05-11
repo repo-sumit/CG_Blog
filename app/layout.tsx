@@ -1,13 +1,30 @@
 import type { Metadata } from "next";
+import { Space_Mono, Orbitron } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
+// UI font — monospace, used everywhere except the hero wordmark.
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-ui",
+  display: "swap",
+});
+
+// Hero font — futuristic display, used for wordmarks and large headings.
+const orbitron = Orbitron({
+  subsets: ["latin"],
+  weight: ["500", "700", "800", "900"],
+  variable: "--font-hero",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: {
-    default: "ConveGenius Team Blog",
-    template: "%s · ConveGenius Team Blog",
+    default: "CG Signal — Team Blog Portal",
+    template: "%s · CG Signal",
   },
-  description: "Internal weekly updates from the ConveGenius.ai team.",
+  description: "Internal weekly transmissions from the ConveGenius.ai team.",
   robots: { index: false, follow: false, nocache: true },
   icons: {
     icon: "https://i.ibb.co/gMxYNcBX/image-4.png",
@@ -18,10 +35,27 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
-        {children}
-        <Toaster richColors position="top-right" />
+    <html lang="en" className={`${spaceMono.variable} ${orbitron.variable}`}>
+      <body className="min-h-screen bg-portal-main text-portal-text antialiased">
+        {/* Subtle full-page grid overlay — gives every screen the OS-surface feel. */}
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 grid-overlay opacity-60 z-0"
+        />
+        <div className="relative z-10">{children}</div>
+        <Toaster
+          theme="dark"
+          richColors
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: "var(--bg-panel-raised)",
+              border: "1px solid var(--border-muted)",
+              color: "var(--text-main)",
+              fontFamily: "var(--font-ui), monospace",
+            },
+          }}
+        />
       </body>
     </html>
   );

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { CalendarCheck2, CalendarClock } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
+import { Panel, PanelBody, PanelHeader } from "@/components/portal/Panel";
+import { SystemLabel } from "@/components/portal/SystemLabel";
 import { weekdayLabel, todayWeekday, formatWeekRange } from "@/lib/utils/dates";
 import type { ProfileRow } from "@/lib/db/types";
 
@@ -14,31 +15,35 @@ interface Props {
 export function WeeklyScheduleCard({ team, postsByAuthorThisWeek }: Props) {
   const today = todayWeekday();
   const byDay: Record<number, ProfileRow | undefined> = {};
-  for (const m of team) {
-    if (m.weekly_post_day) byDay[m.weekly_post_day] = m;
-  }
+  for (const m of team) if (m.weekly_post_day) byDay[m.weekly_post_day] = m;
   const todaysAuthor = today ? byDay[today] : null;
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <CalendarCheck2 className="h-4 w-4 text-primary" />
-            Weekly schedule
-          </CardTitle>
-          <span className="text-xs text-muted-foreground">{formatWeekRange()}</span>
+    <Panel>
+      <PanelHeader>
+        <div>
+          <SystemLabel tone="orange">003 // Schedule</SystemLabel>
+          <div className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text mt-1">
+            <CalendarCheck2 className="inline h-4 w-4 mr-2 text-portal-orange" />
+            Weekly Slot Map
+          </div>
         </div>
-      </CardHeader>
-      <CardContent>
+        <SystemLabel>{formatWeekRange()}</SystemLabel>
+      </PanelHeader>
+
+      <PanelBody className="space-y-4">
         {todaysAuthor && (
-          <div className="mb-4 flex items-center gap-3 rounded-lg border bg-primary/5 p-3">
-            <Avatar src={todaysAuthor.avatar_url} name={todaysAuthor.full_name} email={todaysAuthor.email} />
-            <div className="flex-1">
-              <div className="text-xs font-medium uppercase tracking-wide text-primary">Today’s author</div>
-              <div className="font-medium">{todaysAuthor.full_name || todaysAuthor.email}</div>
+          <div className="rounded-md border-2 border-portal-orange/30 bg-portal-orange/5 p-3">
+            <SystemLabel tone="orange" dot>Today’s Author</SystemLabel>
+            <div className="mt-2 flex items-center gap-3">
+              <Avatar src={todaysAuthor.avatar_url} name={todaysAuthor.full_name} email={todaysAuthor.email} />
+              <div className="flex-1">
+                <div className="font-ui text-sm font-bold text-portal-text">
+                  {todaysAuthor.full_name || todaysAuthor.email}
+                </div>
+                <SystemLabel>{weekdayLabel(today!)}</SystemLabel>
+              </div>
             </div>
-            <Badge>{weekdayLabel(today!)}</Badge>
           </div>
         )}
 
@@ -51,44 +56,41 @@ export function WeeklyScheduleCard({ team, postsByAuthorThisWeek }: Props) {
               <li
                 key={d}
                 className={
-                  "flex items-center gap-3 rounded-md px-2 py-1.5 " +
-                  (isToday ? "bg-secondary" : "")
+                  "flex items-center gap-3 rounded-md px-3 py-2 " +
+                  (isToday ? "bg-portal-panel-raised border border-portal-border-muted" : "")
                 }
               >
-                <span className="w-20 text-xs font-medium text-muted-foreground">
+                <span className="w-16 font-ui text-[10px] uppercase tracking-label text-portal-text-soft">
                   {weekdayLabel(d)}
                 </span>
                 {owner ? (
                   <>
                     <Avatar src={owner.avatar_url} name={owner.full_name} email={owner.email} size="sm" />
-                    <span className="text-sm flex-1 truncate">{owner.full_name || owner.email}</span>
+                    <span className="flex-1 truncate font-ui text-xs text-portal-text">{owner.full_name || owner.email}</span>
                     {posted ? (
                       <Badge variant="success">Posted</Badge>
                     ) : isToday ? (
-                      <Badge variant="warning">Due today</Badge>
+                      <Badge variant="warning">Due</Badge>
                     ) : d < (today ?? 0) ? (
                       <Badge variant="destructive">Missed</Badge>
                     ) : (
-                      <Badge variant="muted">
-                        <CalendarClock className="mr-1 h-3 w-3" />
-                        Upcoming
-                      </Badge>
+                      <Badge variant="muted"><CalendarClock className="h-3 w-3" /> Upcoming</Badge>
                     )}
                   </>
                 ) : (
-                  <span className="text-xs italic text-muted-foreground">Unassigned</span>
+                  <span className="font-ui text-[10px] uppercase tracking-label text-portal-text-soft">Unassigned</span>
                 )}
               </li>
             );
           })}
         </ul>
 
-        <div className="mt-4 text-xs text-muted-foreground">
-          <Link href="/admin/schedule" className="underline-offset-2 hover:underline">
+        <div className="border-t-2 border-portal-border-soft pt-3">
+          <Link href="/admin/schedule" className="font-ui text-[10px] uppercase tracking-label text-portal-blue hover:underline">
             Manage schedule →
           </Link>
         </div>
-      </CardContent>
-    </Card>
+      </PanelBody>
+    </Panel>
   );
 }

@@ -3,23 +3,39 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils/cn";
 
+// Dark-portal button system. All variants are pill-shaped, mono-uppercase,
+// 2px outlined — matches the design system's primary/secondary spec.
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  [
+    "inline-flex items-center justify-center gap-2",
+    "font-ui text-[11px] uppercase tracking-label",
+    "rounded-pill border-2",
+    "transition-[transform,box-shadow,background,color,border-color] duration-200",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-portal-blue focus-visible:ring-offset-2 focus-visible:ring-offset-portal-main",
+    "disabled:pointer-events-none disabled:opacity-50",
+    "hover:-translate-y-px",
+  ].join(" "),
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        default:
+          "bg-portal-text text-portal-inverse border-portal-border-main hover:shadow-glow",
+        outline:
+          "bg-transparent text-portal-text border-portal-border-muted hover:border-portal-border-main hover:shadow-glow",
+        secondary:
+          "bg-portal-panel-raised text-portal-text border-portal-border-soft hover:border-portal-border-muted",
+        ghost:
+          "border-transparent bg-transparent text-portal-text-muted hover:text-portal-text hover:bg-portal-panel-soft",
+        destructive:
+          "bg-portal-red text-portal-inverse border-portal-red hover:shadow-[0_0_18px_rgba(255,77,94,0.45)]",
+        link:
+          "border-transparent bg-transparent text-portal-blue hover:underline underline-offset-4 px-0",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-6",
-        icon: "h-9 w-9",
+        default: "h-11 px-5",
+        sm: "h-9 px-4 text-[10px]",
+        lg: "h-12 px-7 text-xs",
+        icon: "h-10 w-10 px-0",
       },
     },
     defaultVariants: { variant: "default", size: "default" },
