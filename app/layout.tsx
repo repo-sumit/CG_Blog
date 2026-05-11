@@ -10,9 +10,9 @@ export const metadata: Metadata = {
   description: "Internal weekly updates from the ConveGenius.ai team.",
   robots: { index: false, follow: false, nocache: true },
   icons: {
-    icon: "https://i.ibb.co/gMxYNcBX/image-4.png",
-    shortcut: "https://i.ibb.co/gMxYNcBX/image-4.png",
-    apple: "https://i.ibb.co/gMxYNcBX/image-4.png",
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
   },
 };
 

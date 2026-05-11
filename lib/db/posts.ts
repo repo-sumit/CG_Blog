@@ -10,7 +10,7 @@ export interface PostWithAuthor extends PostRow {
 }
 
 const POST_SELECT = `
-  id, author_id, title, slug, excerpt, content_json, content_html, blocks, status,
+  id, author_id, title, slug, excerpt, content_json, content_html, status,
   week_start_date, assigned_weekday, published_at, scheduled_for, cover_media_id,
   read_time_minutes, created_at, updated_at, archived_at,
   author:profiles!posts_author_id_fkey ( id, full_name, email, avatar_url, role ),

@@ -10,8 +10,6 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { formatPostDate, weekdayLabel } from "@/lib/utils/dates";
 import { sanitizeHtml } from "@/lib/editor/sanitize";
-import { BlockRenderer } from "@/components/blocks/BlockRenderer";
-import { BlocksArraySchema } from "@/lib/blocks";
 
 export const dynamic = "force-dynamic";
 
@@ -39,10 +37,7 @@ export default async function PostDetailPage({ params }: { params: { slug: strin
   const related = await listPublishedPosts({ authorId: post.author_id, limit: 4 });
   const relatedFiltered = related.filter((p) => p.id !== post.id).slice(0, 3);
 
-  // Pick renderer: blocks (new) if non-empty, otherwise sanitized Tiptap HTML.
-  const parsedBlocks = BlocksArraySchema.safeParse(post.blocks);
-  const hasBlocks = parsedBlocks.success && parsedBlocks.data.length > 0;
-  const safeHtml = hasBlocks ? "" : sanitizeHtml(post.content_html);
+  const safeHtml = sanitizeHtml(post.content_html);
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-8">
@@ -89,16 +84,11 @@ export default async function PostDetailPage({ params }: { params: { slug: strin
           </div>
         </div>
 
-        <div className="article-body mt-6">
-          {hasBlocks ? (
-            <BlockRenderer blocks={parsedBlocks.data} />
-          ) : (
-            <div
-              // legacy posts: sanitized server-side from Tiptap-generated HTML
-              dangerouslySetInnerHTML={{ __html: safeHtml }}
-            />
-          )}
-        </div>
+        <div
+          className="article-body mt-6"
+          // sanitized server-side from Tiptap-generated HTML
+          dangerouslySetInnerHTML={{ __html: safeHtml }}
+        />
       </article>
 
       {relatedFiltered.length > 0 && (

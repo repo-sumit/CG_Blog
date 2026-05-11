@@ -42,12 +42,6 @@ export interface PostRow {
   excerpt: string | null;
   content_json: unknown;
   content_html: string;
-  /**
-   * Block-based content (CMSBlock[]). When non-empty, this is the source of
-   * truth and the post detail page uses BlockRenderer instead of content_html.
-   * Empty array → legacy Tiptap post.
-   */
-  blocks: unknown;
   status: PostStatus;
   week_start_date: string;
   assigned_weekday: number | null;
