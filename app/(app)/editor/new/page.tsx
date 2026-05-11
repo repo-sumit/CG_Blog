@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireAuthor } from "@/lib/auth/guards";
 import { listTags } from "@/lib/db/tags";
 import { PostEditor } from "@/components/editor/PostEditor";
+import { BlocksPostEditor } from "@/components/editor/BlocksPostEditor";
 import { WEEKLY_TEMPLATE } from "@/lib/editor/template";
 import { publicEnv } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -11,15 +12,19 @@ import { weekStartISO } from "@/lib/utils/dates";
 export const metadata: Metadata = { title: "New post" };
 export const dynamic = "force-dynamic";
 
+/**
+ * /editor/new            → block-based editor (the new default)
+ * /editor/new?mode=tiptap → legacy Tiptap editor
+ * /editor/new?force=1    → bypass "continue existing draft" redirect
+ */
 export default async function NewEditorPage({
   searchParams,
 }: {
-  searchParams: { force?: string };
+  searchParams: { force?: string; mode?: string };
 }) {
   const { profile, userId } = await requireAuthor();
+  const useTiptap = searchParams.mode === "tiptap";
 
-  // Avoid accidentally creating a second draft for the same week. If one exists,
-  // route the author to it. Override with /editor/new?force=1.
   if (searchParams.force !== "1") {
     const supabase = createSupabaseServerClient();
     const { data: existing } = await supabase
@@ -37,14 +42,31 @@ export default async function NewEditorPage({
   }
 
   const tags = await listTags();
+
+  if (useTiptap) {
+    return (
+      <PostEditor
+        tags={tags}
+        role={profile.role}
+        requireReview={publicEnv.requireManagerReview}
+        initialPost={{
+          title: "",
+          content_json: WEEKLY_TEMPLATE,
+          status: "draft",
+          assigned_weekday: profile.weekly_post_day ?? null,
+        }}
+      />
+    );
+  }
+
   return (
-    <PostEditor
+    <BlocksPostEditor
       tags={tags}
       role={profile.role}
       requireReview={publicEnv.requireManagerReview}
       initialPost={{
         title: "",
-        content_json: WEEKLY_TEMPLATE,
+        blocks: [],
         status: "draft",
         assigned_weekday: profile.weekly_post_day ?? null,
       }}

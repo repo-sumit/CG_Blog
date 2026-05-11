@@ -6,10 +6,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/auth/guards";
 import { slugify, withSuffix } from "@/lib/utils/slugs";
 import { weekStartISO } from "@/lib/utils/dates";
-import { readTimeFromHtml } from "@/lib/utils/read-time";
+import { readTimeFromHtml, readTimeFromText } from "@/lib/utils/read-time";
 import { sanitizeHtml } from "@/lib/editor/sanitize";
 import { publicEnv } from "@/lib/env";
 import { WEEKLY_TEMPLATE } from "@/lib/editor/template";
+import { BlocksArraySchema } from "@/lib/blocks";
+import { blocksToPlainText } from "@/lib/blocks/plaintext";
 
 const SavePostSchema = z.object({
   id: z.string().uuid().optional(),
@@ -17,6 +19,10 @@ const SavePostSchema = z.object({
   excerpt: z.string().max(500).optional().nullable(),
   content_json: z.unknown(),
   content_html: z.string().default(""),
+  // Block-based content. Empty array means "this is a Tiptap-based post,
+  // use content_html". Validation happens at the action level (below) so a
+  // bad block doesn't crash with an obscure Zod path.
+  blocks: z.unknown().optional(),
   status: z.enum(["draft", "submitted", "scheduled", "published", "archived"]).default("draft"),
   assigned_weekday: z.number().int().min(1).max(5).nullable().optional(),
   scheduled_for: z.string().datetime().nullable().optional(),
@@ -65,7 +71,25 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
   const data = parsed.data;
   const supabase = createSupabaseServerClient();
   const html = sanitizeHtml(data.content_html ?? "");
-  const readTime = readTimeFromHtml(html);
+
+  // If blocks were supplied, validate them. We DO NOT throw on invalid blocks
+  // — we just refuse to store an invalid array and surface a clear error.
+  let blocksArray: ReturnType<typeof BlocksArraySchema.parse> | null = null;
+  if (data.blocks !== undefined) {
+    const parsedBlocks = BlocksArraySchema.safeParse(data.blocks);
+    if (!parsedBlocks.success) {
+      return {
+        ok: false,
+        error: `Invalid block: ${parsedBlocks.error.issues[0]?.path.join(".")} — ${parsedBlocks.error.issues[0]?.message}`,
+      };
+    }
+    blocksArray = parsedBlocks.data;
+  }
+
+  // Pick read-time source: blocks if present, otherwise HTML.
+  const readTime = blocksArray && blocksArray.length > 0
+    ? readTimeFromText(blocksToPlainText(blocksArray))
+    : readTimeFromHtml(html);
 
   // Determine desired status; enforce review workflow if enabled.
   let desiredStatus = data.status;
@@ -105,6 +129,7 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
       scheduled_for: data.scheduled_for ?? null,
       read_time_minutes: readTime,
     };
+    if (blocksArray !== null) update.blocks = blocksArray;
     if (desiredStatus === "published" && !((existing as { published_at?: string | null }).published_at)) {
       update.published_at = new Date().toISOString();
     }
@@ -131,6 +156,7 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
       excerpt: data.excerpt ?? null,
       content_json: data.content_json,
       content_html: html,
+      blocks: blocksArray ?? [],
       status: desiredStatus,
       week_start_date: weekStartISO(),
       assigned_weekday: data.assigned_weekday ?? profile.weekly_post_day ?? null,
