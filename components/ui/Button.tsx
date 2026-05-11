@@ -4,13 +4,20 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils/cn";
 
 // Dark-portal button system. All variants are pill-shaped, mono-uppercase,
-// 2px outlined — matches the design system's primary/secondary spec.
+// outlined — matches the design system spec.
+//
+// CONTRAST RULES (audited 2026-05-11):
+//   - Cream surfaces (bg-portal-inverse, bg-portal-text) MUST use
+//     text-portal-text-inverse (near-black) — never text-portal-text (cream).
+//   - Dark surfaces MUST use text-portal-text (cream).
+//   - Hairline rgba border on cream buttons gives the pill definition against
+//     the dark page background without adding visual weight.
 const buttonVariants = cva(
   [
     "inline-flex items-center justify-center gap-2",
     "font-ui text-[11px] uppercase tracking-label",
-    "rounded-pill border-2",
-    "transition-[transform,box-shadow,background,color,border-color] duration-200",
+    "rounded-pill border",
+    "transition-[transform,box-shadow,background,color,border-color,opacity] duration-150",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-portal-blue focus-visible:ring-offset-2 focus-visible:ring-offset-portal-main",
     "disabled:pointer-events-none disabled:opacity-50",
     "hover:-translate-y-px",
@@ -18,16 +25,22 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        // Primary CTA — cream surface, near-black ink, hairline border.
         default:
-          "bg-portal-text text-portal-inverse border-portal-border-main hover:shadow-glow",
+          "bg-portal-inverse text-portal-text-inverse border-[rgba(17,17,17,0.12)] hover:bg-[#fffcef]",
+        // Outline — dark transparent, light ink. Adds presence on hover.
         outline:
-          "bg-transparent text-portal-text border-portal-border-muted hover:border-portal-border-main hover:shadow-glow",
+          "bg-transparent text-portal-text border-portal-border-muted hover:border-portal-text hover:bg-portal-panel-soft",
+        // Secondary — quiet dark fill, light ink.
         secondary:
-          "bg-portal-panel-raised text-portal-text border-portal-border-soft hover:border-portal-border-muted",
+          "bg-portal-panel-raised text-portal-text border-portal-border-soft hover:bg-portal-panel hover:border-portal-border-muted",
+        // Ghost — no fill, no border.
         ghost:
           "border-transparent bg-transparent text-portal-text-muted hover:text-portal-text hover:bg-portal-panel-soft",
+        // Destructive — red surface, light ink (white on red is the WCAG-safe pairing).
         destructive:
-          "bg-portal-red text-portal-inverse border-portal-red hover:shadow-[0_0_18px_rgba(255,77,94,0.45)]",
+          "bg-portal-red text-white border-portal-red hover:bg-[#ff3d50]",
+        // Link — no fill, blue ink, no border.
         link:
           "border-transparent bg-transparent text-portal-blue hover:underline underline-offset-4 px-0",
       },

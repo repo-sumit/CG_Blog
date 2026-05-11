@@ -55,14 +55,17 @@ const config: Config = {
           foreground: "hsl(var(--popover-foreground))",
         },
 
-        // Direct portal palette (use these for portal-specific surfaces)
+        // Direct portal palette (use these for portal-specific surfaces).
+        // CRITICAL: `inverse` is a SURFACE (cream); `text-inverse` is INK on
+        // that surface (near-black). Mixing them produces invisible text.
         portal: {
           main: "var(--bg-main)",
           page: "var(--bg-page)",
           panel: "var(--bg-panel)",
           "panel-raised": "var(--bg-panel-raised)",
           "panel-soft": "var(--bg-panel-soft)",
-          inverse: "var(--bg-inverse)",
+          inverse: "var(--bg-inverse)",              // cream surface (#f4f0df)
+          "text-inverse": "var(--text-inverse)",     // near-black ink (#0a0a0a)
           text: "var(--text-main)",
           "text-muted": "var(--text-muted)",
           "text-soft": "var(--text-soft)",
