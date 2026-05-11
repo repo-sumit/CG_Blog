@@ -24,7 +24,11 @@ export async function POST(request: NextRequest) {
 
   const form = await request.formData();
   const file = form.get("file");
-  const postId = (form.get("postId") as string | null) ?? null;
+  const rawPostId = form.get("postId");
+  // Only accept UUIDs — anything else is treated as no post id, so the file
+  // lands under {user_id}/drafts/ instead of an arbitrary attacker-chosen path.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const postId = typeof rawPostId === "string" && UUID_RE.test(rawPostId) ? rawPostId : null;
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Missing file" }, { status: 400 });
   }

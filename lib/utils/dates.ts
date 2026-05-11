@@ -35,6 +35,13 @@ export function todayWeekday(date: Date = new Date()): number | null {
 
 export function formatPostDate(iso: string): string {
   try {
+    // `YYYY-MM-DD` (Postgres DATE) is parsed as UTC midnight by `new Date()`,
+    // which renders as the previous day in timezones west of UTC. Parse such
+    // values as a local date instead.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      const [y, m, d] = iso.split("-").map(Number);
+      return format(new Date(y as number, (m as number) - 1, d as number), "MMM d, yyyy");
+    }
     return format(new Date(iso), "MMM d, yyyy");
   } catch {
     return iso;

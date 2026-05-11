@@ -44,16 +44,25 @@ export async function GET(request: NextRequest) {
   try {
     const service = createSupabaseServiceClient();
 
-    // Env-driven sync into authorized_users (idempotent, manager/author overrides win for env values).
+    // Env-driven sync into authorized_users. Order matters:
+    //   1. Manager email -> upsert as manager (always wins).
+    //   2. Author emails -> insert only if not already in the table (do NOT
+    //      overwrite, otherwise a teammate promoted to manager via /admin/users
+    //      would get demoted back to "author" on their next sign-in).
+    //   3. Skip the manager email from the authors loop entirely.
     if (env.managerEmail) {
       await service
         .from("authorized_users")
         .upsert({ email: env.managerEmail, role: "manager" }, { onConflict: "email" });
     }
-    for (const a of env.authorEmails) {
+    const authorEmailsToSeed = env.authorEmails.filter((a) => a !== env.managerEmail);
+    if (authorEmailsToSeed.length > 0) {
       await service
         .from("authorized_users")
-        .upsert({ email: a, role: "author" }, { onConflict: "email" });
+        .upsert(
+          authorEmailsToSeed.map((email) => ({ email, role: "author" as const })),
+          { onConflict: "email", ignoreDuplicates: true },
+        );
     }
 
     // Determine role and weekday for this user.

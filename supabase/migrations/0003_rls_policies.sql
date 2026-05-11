@@ -39,9 +39,10 @@ create policy profiles_update_self on public.profiles
   for update using (id = auth.uid())
   with check (
     id = auth.uid()
-    -- Self-update may not escalate role / activation / weekday — manager only.
-    and role = (select role from public.profiles where id = auth.uid())
-    and is_active = (select is_active from public.profiles where id = auth.uid())
+    -- Self-update may not escalate role / activation / weekday / email — manager only.
+    and role          = (select role          from public.profiles where id = auth.uid())
+    and is_active     = (select is_active     from public.profiles where id = auth.uid())
+    and email         = (select email         from public.profiles where id = auth.uid())
     and weekly_post_day is not distinct from (select weekly_post_day from public.profiles where id = auth.uid())
   );
 

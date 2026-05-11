@@ -62,11 +62,22 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
     immediatelyRender: false,
   });
 
+  // Track whether the user edited during an in-flight save. If so, we must NOT
+  // overwrite the post-save state with "saved" — the editor content has diverged
+  // from what we just persisted, so mark "unsaved" to trigger another autosave.
+  const dirtyDuringSave = useRef(false);
+
   // Mark unsaved on any edit and refresh the word counter.
   useEffect(() => {
     if (!editor) return;
     const onUpdate = () => {
-      setSaveState((s) => (s === "saving" ? s : "unsaved"));
+      setSaveState((s) => {
+        if (s === "saving") {
+          dirtyDuringSave.current = true;
+          return s;
+        }
+        return "unsaved";
+      });
       setWords(wordCount(editor.getText()));
     };
     editor.on("update", onUpdate);
@@ -85,6 +96,7 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
         if (overrideStatus) toast.error("Add a title before saving.");
         return null;
       }
+      dirtyDuringSave.current = false;
       setSaveState("saving");
       const json = editor.getJSON();
       const html = editor.getHTML();
@@ -105,7 +117,9 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
       }
       setPostId(res.id);
       setStatus((res.status as PostStatus) ?? status);
-      setSaveState("saved");
+      // If the user typed during the await, keep state "unsaved" so the
+      // autosave effect schedules another save.
+      setSaveState(dirtyDuringSave.current ? "unsaved" : "saved");
       setLastSavedAt(new Date());
       // If we just created the post, switch the URL to /editor/[id] without reloading.
       if (isNew && res.id) {
