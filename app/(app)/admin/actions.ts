@@ -38,7 +38,17 @@ export async function setWeekday(input: z.infer<typeof WeekdayInput>): Promise<A
     }
   }
 
-  const { error } = await supabase.rpc("assign_weekday", {
+  // supabase-js's typed rpc() requires the Database generic to satisfy an
+  // internal `GenericSchema` constraint whose exact shape varies across
+  // postgrest-js versions. Rather than chase the moving target, call rpc
+  // through a narrow cast — the runtime contract is fixed by the SQL function
+  // signature in migration 0002.
+  type RpcResult = { error: { message: string } | null };
+  const rpc = supabase.rpc as unknown as (
+    fn: "assign_weekday",
+    args: { p_user_id: string; p_weekday: number | null },
+  ) => Promise<RpcResult>;
+  const { error } = await rpc("assign_weekday", {
     p_user_id: parsed.data.userId,
     p_weekday: parsed.data.weekday,
   });
