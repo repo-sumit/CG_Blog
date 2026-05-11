@@ -87,17 +87,10 @@ export async function updateSession(request: NextRequest) {
     return withCookies(NextResponse.redirect(url));
   }
 
-  if (user) {
-    const email = (user.email ?? "").toLowerCase();
-    const domain = email.split("@")[1] ?? "";
-    const allowed = (process.env.APP_ALLOWED_EMAIL_DOMAIN ?? "convegenius.ai").toLowerCase();
-    if (domain && domain !== allowed && !isPublic && pathname !== "/unauthorized") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/unauthorized";
-      url.searchParams.set("reason", "domain");
-      return withCookies(NextResponse.redirect(url));
-    }
-  }
+  // We deliberately do NOT block non-`convegenius.ai` sessions in the middleware
+  // anymore. External Google accounts are allowed for commenting + reactions;
+  // they're only blocked from protected editor/admin routes by the
+  // requireAuthor / requireManager guards (which redirect to /unauthorized).
 
   return withCookies(NextResponse.next({ request }));
 }

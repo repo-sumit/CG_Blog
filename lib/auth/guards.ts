@@ -38,25 +38,25 @@ export async function requireSession(): Promise<SessionContext> {
 }
 
 /**
- * Require an author/admin actor. While View Mode is active, redirect to the
- * dashboard — the whole point of view mode is to simulate the viewer
- * experience, which excludes editor routes.
+ * Require an author/admin actor (approved editor). Non-editors (including
+ * external Gmail commenters) are sent to /unauthorized. While View Mode is
+ * active, editors are sent to /dashboard so the viewer simulation is consistent.
  */
 export async function requireAuthor(): Promise<SessionContext> {
   const ctx = await requireSession();
   if (isViewModeActive()) redirect("/dashboard");
   if (ctx.profile.role !== "author" && ctx.profile.role !== "manager") {
-    redirect("/dashboard");
+    redirect("/unauthorized?reason=editor");
   }
   return ctx;
 }
 
-/** Require an admin actor. View Mode bounces back to dashboard like above. */
+/** Require an admin actor. Non-admins bounced to /unauthorized. */
 export async function requireManager(): Promise<SessionContext> {
   const ctx = await requireSession();
   if (isViewModeActive()) redirect("/dashboard");
   if (ctx.profile.role !== "manager") {
-    redirect("/dashboard");
+    redirect("/unauthorized?reason=editor");
   }
   return ctx;
 }

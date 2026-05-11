@@ -31,12 +31,10 @@ export async function GET(request: NextRequest) {
   const email = user.email.toLowerCase();
   const domain = email.split("@")[1] ?? "";
   const env = serverEnv();
-
-  if (domain !== env.allowedDomain) {
-    // Sign the user out so the cookie doesn't linger.
-    await supabase.auth.signOut();
-    return NextResponse.redirect(new URL("/unauthorized?reason=domain", url.origin));
-  }
+  // Any Google account is allowed to sign in — they need a session to
+  // comment and react. Whether they're an APPROVED EDITOR is a separate
+  // check enforced by the route-level guards (requireAuthor / requireManager).
+  const isInternalDomain = domain === env.allowedDomain;
 
   // Bootstrap (or refresh) the profile. The DB function reads the allowlist;
   // also reconcile env-driven manager/author overrides so a fresh setup works
@@ -44,14 +42,10 @@ export async function GET(request: NextRequest) {
   try {
     const service = createSupabaseServiceClient();
 
-    // Env-driven sync into authorized_users. Order matters:
-    //   1. Every email in APP_MANAGER_EMAIL (now supports comma-separated list)
-    //      is upserted as `manager` — always wins.
-    //   2. Author emails are inserted only if they don't already exist (so a
-    //      teammate promoted to manager via /admin/users isn't demoted on
-    //      their next sign-in).
-    //   3. The manager list is excluded from the authors loop.
-    if (env.managerEmails.length > 0) {
+    // Only reconcile the authorized-users allowlist when the signed-in account
+    // is from the internal domain — Gmail/external accounts are commenters,
+    // never editors, so they don't belong in the allowlist.
+    if (isInternalDomain && env.managerEmails.length > 0) {
       await service
         .from("authorized_users")
         .upsert(
@@ -61,7 +55,7 @@ export async function GET(request: NextRequest) {
     }
     const managerSet = new Set(env.managerEmails);
     const authorEmailsToSeed = env.authorEmails.filter((a) => !managerSet.has(a));
-    if (authorEmailsToSeed.length > 0) {
+    if (isInternalDomain && authorEmailsToSeed.length > 0) {
       await service
         .from("authorized_users")
         .upsert(
@@ -70,15 +64,20 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    // Determine role and weekday for this user.
-    const { data: allow } = await service
-      .from("authorized_users")
-      .select("role, weekly_post_day")
-      .eq("email", email)
-      .maybeSingle();
-
-    const role = (allow?.role as "manager" | "author" | "viewer" | undefined) ?? "viewer";
-    const weekday = (allow?.weekly_post_day as number | null | undefined) ?? null;
+    // External (Gmail/etc.) sessions are always viewers — they can comment +
+    // react but not access editor/admin. Internal-domain users get whatever
+    // role the allowlist says, defaulting to viewer.
+    let role: "manager" | "author" | "viewer" = "viewer";
+    let weekday: number | null = null;
+    if (isInternalDomain) {
+      const { data: allow } = await service
+        .from("authorized_users")
+        .select("role, weekly_post_day")
+        .eq("email", email)
+        .maybeSingle();
+      role = (allow?.role as typeof role | undefined) ?? "viewer";
+      weekday = (allow?.weekly_post_day as number | null | undefined) ?? null;
+    }
 
     const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
     const fullName =
@@ -108,5 +107,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(dest);
   }
 
-  return NextResponse.redirect(new URL(redirectPath, url.origin));
+  // External (commenter) sessions should never land on a protected dashboard.
+  // Honor `?redirect=` only if it's a public path or the post they came from.
+  const PUBLIC_REDIRECT_RE = /^\/(?:$|posts\/|login|unauthorized)/;
+  const finalRedirect = isInternalDomain
+    ? redirectPath
+    : PUBLIC_REDIRECT_RE.test(redirectPath)
+      ? redirectPath
+      : "/";
+  return NextResponse.redirect(new URL(finalRedirect, url.origin));
 }

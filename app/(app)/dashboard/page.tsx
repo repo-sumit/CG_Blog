@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PenSquare, ListTodo, CheckCircle2 } from "lucide-react";
-import { requireSession } from "@/lib/auth/guards";
+import { requireAuthor } from "@/lib/auth/guards";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listTeam } from "@/lib/db/profiles";
 import { listPostsThisWeek, listOwnPosts } from "@/lib/db/posts";
@@ -19,7 +19,8 @@ export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const { profile, userId } = await requireSession();
+  // Dashboard is editor-only — Gmail commenters get bounced to /unauthorized.
+  const { profile, userId } = await requireAuthor();
   const supabase = createSupabaseServerClient();
   const wk = weekStartISO();
   // When View Mode is active, every UI gate evaluates as a plain viewer.

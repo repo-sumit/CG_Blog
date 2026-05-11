@@ -123,3 +123,72 @@ export async function listPublicAuthors(): Promise<PublicAuthor[]> {
   }
   return Array.from(seen.values());
 }
+
+// ============================================================
+// Comments + reactions (public reads)
+// ============================================================
+
+export interface PublicComment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  author_name: string;
+  author_avatar_url: string | null;
+  body: string;
+  created_at: string;
+}
+
+export async function listComments(postId: string): Promise<PublicComment[]> {
+  const service = createSupabaseServiceClient();
+  const { data, error } = await service
+    .from("comments")
+    .select("id, post_id, user_id, author_name, author_avatar_url, body, created_at")
+    .eq("post_id", postId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error("[listComments]", error);
+    return [];
+  }
+  return (data ?? []) as unknown as PublicComment[];
+}
+
+export const REACTION_EMOJIS = ["👍", "❤️", "😂", "🎉", "👀", "🚀"] as const;
+export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
+
+export async function listReactionCounts(postId: string): Promise<Record<ReactionEmoji, number>> {
+  const service = createSupabaseServiceClient();
+  const { data, error } = await service
+    .from("reactions")
+    .select("emoji")
+    .eq("post_id", postId);
+  const out: Record<string, number> = {};
+  for (const e of REACTION_EMOJIS) out[e] = 0;
+  if (error) {
+    console.error("[listReactionCounts]", error);
+    return out as Record<ReactionEmoji, number>;
+  }
+  for (const r of data ?? []) {
+    const e = (r as { emoji: string }).emoji;
+    if ((REACTION_EMOJIS as readonly string[]).includes(e)) {
+      out[e] = (out[e] ?? 0) + 1;
+    }
+  }
+  return out as Record<ReactionEmoji, number>;
+}
+
+export async function listMyReactions(postId: string, userId: string): Promise<ReactionEmoji[]> {
+  const service = createSupabaseServiceClient();
+  const { data, error } = await service
+    .from("reactions")
+    .select("emoji")
+    .eq("post_id", postId)
+    .eq("user_id", userId);
+  if (error) {
+    console.error("[listMyReactions]", error);
+    return [];
+  }
+  return ((data ?? []) as { emoji: string }[])
+    .map((r) => r.emoji)
+    .filter((e): e is ReactionEmoji => (REACTION_EMOJIS as readonly string[]).includes(e));
+}

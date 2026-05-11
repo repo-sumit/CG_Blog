@@ -2,16 +2,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Clock } from "lucide-react";
-import { getPublicPostBySlug, listPublicPosts } from "@/lib/db/public";
+import {
+  getPublicPostBySlug,
+  listPublicPosts,
+  listComments,
+  listReactionCounts,
+  listMyReactions,
+} from "@/lib/db/public";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Panel, PanelBody } from "@/components/portal/Panel";
 import { PublicNav } from "@/components/layout/PublicNav";
 import { PortalFooter } from "@/components/layout/PortalFooter";
+import { CommentsSection } from "@/components/comments/CommentsSection";
+import { ReactionsBar } from "@/components/reactions/ReactionsBar";
 import { formatPostDate, weekdayLabel } from "@/lib/utils/dates";
 import { roleLabel } from "@/lib/auth/roles";
 import { sanitizeHtml } from "@/lib/editor/sanitize";
+import { getSessionContext } from "@/lib/auth/guards";
 
 export const dynamic = "force-dynamic";
 
@@ -21,25 +30,27 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   return {
     title: post.title,
     description: post.excerpt ?? undefined,
-    openGraph: {
-      title: post.title,
-      description: post.excerpt ?? undefined,
-      type: "article",
-    },
+    openGraph: { title: post.title, description: post.excerpt ?? undefined, type: "article" },
   };
 }
 
 export default async function PublicPostPage({ params }: { params: { slug: string } }) {
   const post = await getPublicPostBySlug(params.slug);
-  // `getPublicPostBySlug` already pins to status='published'; null = either
-  // missing or unpublished, so 404 is correct in both cases.
   if (!post) notFound();
 
-  const related = (await listPublicPosts(8))
-    .filter((p) => p.id !== post.id && p.author_id === post.author_id)
-    .slice(0, 3);
+  // Fetch the rest in parallel — none depend on each other.
+  const session = await getSessionContext();
+  const [related, comments, reactionCounts, myReactions] = await Promise.all([
+    listPublicPosts(8).then((all) =>
+      all.filter((p) => p.id !== post.id && p.author_id === post.author_id).slice(0, 3),
+    ),
+    listComments(post.id),
+    listReactionCounts(post.id),
+    session ? listMyReactions(post.id, session.userId) : Promise.resolve([]),
+  ]);
 
   const safeHtml = sanitizeHtml(post.content_html);
+  const isAdmin = session?.profile.role === "manager";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -97,6 +108,30 @@ export default async function PublicPostPage({ params }: { params: { slug: strin
 
             <div className="article-body mt-8" dangerouslySetInnerHTML={{ __html: safeHtml }} />
           </article>
+
+          {/* Reactions */}
+          <div className="mt-10 border-t border-portal-border-soft pt-6">
+            <div className="mb-3 text-[10px] uppercase tracking-wider text-portal-text-muted">
+              Reactions
+            </div>
+            <ReactionsBar
+              postId={post.id}
+              postSlug={post.slug}
+              counts={reactionCounts}
+              myReactions={myReactions}
+              isAuthenticated={!!session}
+            />
+          </div>
+
+          {/* Comments */}
+          <CommentsSection
+            postId={post.id}
+            postSlug={post.slug}
+            postAuthorId={post.author_id}
+            comments={comments}
+            currentUserId={session?.userId ?? null}
+            isManager={isAdmin}
+          />
 
           {related.length > 0 && (
             <section className="mt-16">

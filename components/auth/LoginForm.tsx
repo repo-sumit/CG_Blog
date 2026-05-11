@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Panel, PanelBody, PanelHeader } from "@/components/portal/Panel";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { isValidDomain } from "@/lib/auth/roles";
 import { publicEnv } from "@/lib/env";
 
 const ALLOWED_DOMAIN = "convegenius.ai";
@@ -29,8 +28,11 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
     setError(undefined);
-    if (!isValidDomain(email, ALLOWED_DOMAIN)) {
-      setError(`Please use your @${ALLOWED_DOMAIN} email address.`);
+    const trimmed = email.trim().toLowerCase();
+    // Basic email shape only — any provider is OK (Gmail for commenters,
+    // workspace email for editors). Server-side decides editor access.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError("Please enter a valid email address.");
       return;
     }
     setSending(true);
@@ -60,7 +62,10 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
         provider: "google",
         options: {
           redirectTo: callbackUrl,
-          queryParams: { hd: ALLOWED_DOMAIN, prompt: "select_account" },
+          // No `hd` hint — we want Gmail accounts to be selectable so external
+          // commenters can sign in. The auth callback decides what they can
+          // do once they're back (editor vs viewer).
+          queryParams: { prompt: "select_account" },
         },
       });
       if (error) throw error;
@@ -136,7 +141,7 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
         )}
 
         <p className="border-t border-portal-border-soft pt-3 text-center text-[10px] uppercase tracking-wider text-portal-text-muted">
-          Use your @{ALLOWED_DOMAIN} address
+          Editor access · @{ALLOWED_DOMAIN} only. Comment access · any Google account.
         </p>
       </PanelBody>
     </Panel>

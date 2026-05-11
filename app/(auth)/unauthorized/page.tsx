@@ -14,25 +14,36 @@ export default function UnauthorizedPage({
   searchParams: { reason?: string };
 }) {
   const reason = searchParams.reason;
+  const isEditorBlock = reason === "editor";
+
   return (
     <main className="min-h-screen">
       <div className="container mx-auto flex min-h-screen items-center px-4">
         <Panel variant="bright" className="mx-auto w-full max-w-lg">
           <PanelBody className="space-y-5 p-10 text-center">
-            <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full border border-portal-red/40 bg-portal-red/10 text-portal-red">
+            <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full border border-portal-yellow/40 bg-portal-yellow/10 text-portal-yellow">
               <ShieldAlert className="h-6 w-6" />
             </div>
             <h1 className="font-hero text-3xl font-bold uppercase tracking-tighter text-portal-text">
-              Access restricted
+              {isEditorBlock ? "No editor access" : "Access restricted"}
             </h1>
             <p className="text-sm leading-relaxed text-portal-text-muted">
-              {reason === "domain"
-                ? `This portal is limited to @${ALLOWED_DOMAIN} accounts. Sign in with your workspace email.`
-                : "Your account does not have access to this portal."}
+              {isEditorBlock
+                ? "Sorry, you don't have editor access. You can still read posts and join the discussion."
+                : reason === "domain"
+                  ? `This area is limited to @${ALLOWED_DOMAIN} accounts. Sign in with your workspace email.`
+                  : "Your account does not have access to this area."}
             </p>
-            <Button asChild>
-              <Link href="/login">Back to sign in</Link>
-            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+              <Button asChild>
+                <Link href="/">Continue reading</Link>
+              </Button>
+              {!isEditorBlock && (
+                <Button asChild variant="outline">
+                  <Link href="/login">Back to sign in</Link>
+                </Button>
+              )}
+            </div>
           </PanelBody>
         </Panel>
       </div>
