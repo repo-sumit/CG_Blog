@@ -15,6 +15,24 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  // Canonical-host redirect. If the request hit a non-canonical Vercel URL
+  // (e.g. the auto-generated `cg-blog-sumits-projects-…` team URL), 308 it to
+  // the production host derived from NEXT_PUBLIC_APP_URL. Keeps sign-in cookies
+  // and shared links pinned to one hostname.
+  try {
+    const canonical = new URL(publicEnv.appUrl);
+    const incomingHost = request.headers.get("host") ?? request.nextUrl.host;
+    const isLocalhost = incomingHost.startsWith("localhost") || incomingHost.startsWith("127.0.0.1");
+    if (!isLocalhost && incomingHost !== canonical.host) {
+      const target = new URL(request.nextUrl.toString());
+      target.protocol = canonical.protocol;
+      target.host = canonical.host;
+      return NextResponse.redirect(target, 308);
+    }
+  } catch {
+    // NEXT_PUBLIC_APP_URL isn't a valid URL — fall through and serve as-is.
+  }
+
   // Buffer the cookies Supabase wants to set so we can apply them to whichever
   // response we ultimately return (a `next` OR a `redirect`). Without this,
   // a refreshed session cookie is dropped on redirect and the user can land

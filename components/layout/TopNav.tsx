@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, BookOpen, PenSquare, FileText, ShieldCheck, LogOut } from "lucide-react";
 import type { ProfileRow } from "@/lib/db/types";
 import { canAuthor, isManager } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils/cn";
 import { Avatar } from "@/components/ui/Avatar";
+import { BRAND_ICON_URL } from "@/lib/brand";
 
 interface NavItem {
   href: string;
@@ -30,7 +30,8 @@ export function TopNav({ profile }: { profile: ProfileRow }) {
     <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur">
       <div className="container mx-auto flex h-14 items-center gap-2 px-4">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold tracking-tight">
-          <Image src="/icon.png" alt="ConveGenius" width={28} height={28} className="rounded-md" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={BRAND_ICON_URL} alt="ConveGenius" width={28} height={28} className="rounded-md" />
           <span className="hidden sm:inline">Team Blog</span>
         </Link>
 
