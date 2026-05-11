@@ -2,6 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ProfileRow } from "@/lib/db/types";
+import { isViewModeActive } from "@/lib/auth/viewMode";
 
 export interface SessionContext {
   userId: string;
@@ -36,16 +37,24 @@ export async function requireSession(): Promise<SessionContext> {
   return ctx;
 }
 
+/**
+ * Require an author/admin actor. While View Mode is active, redirect to the
+ * dashboard — the whole point of view mode is to simulate the viewer
+ * experience, which excludes editor routes.
+ */
 export async function requireAuthor(): Promise<SessionContext> {
   const ctx = await requireSession();
+  if (isViewModeActive()) redirect("/dashboard");
   if (ctx.profile.role !== "author" && ctx.profile.role !== "manager") {
     redirect("/dashboard");
   }
   return ctx;
 }
 
+/** Require an admin actor. View Mode bounces back to dashboard like above. */
 export async function requireManager(): Promise<SessionContext> {
   const ctx = await requireSession();
+  if (isViewModeActive()) redirect("/dashboard");
   if (ctx.profile.role !== "manager") {
     redirect("/dashboard");
   }

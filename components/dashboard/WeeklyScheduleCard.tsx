@@ -6,13 +6,17 @@ import { Panel, PanelBody, PanelHeader } from "@/components/portal/Panel";
 import { SystemLabel } from "@/components/portal/SystemLabel";
 import { weekdayLabel, todayWeekday, formatWeekRange } from "@/lib/utils/dates";
 import type { ProfileRow } from "@/lib/db/types";
+import { isViewModeActive } from "@/lib/auth/viewMode";
 
 interface Props {
   team: ProfileRow[];
   postsByAuthorThisWeek: Record<string, number>;
+  /** When true, render the "Manage schedule" link. Defaults to false. */
+  canManageSchedule?: boolean;
 }
 
-export function WeeklyScheduleCard({ team, postsByAuthorThisWeek }: Props) {
+export function WeeklyScheduleCard({ team, postsByAuthorThisWeek, canManageSchedule = false }: Props) {
+  const showManageLink = canManageSchedule && !isViewModeActive();
   const today = todayWeekday();
   const byDay: Record<number, ProfileRow | undefined> = {};
   for (const m of team) if (m.weekly_post_day) byDay[m.weekly_post_day] = m;
@@ -85,14 +89,16 @@ export function WeeklyScheduleCard({ team, postsByAuthorThisWeek }: Props) {
           })}
         </ul>
 
-        <div className="border-t border-portal-border-soft pt-2">
-          <Link
-            href="/admin/schedule"
-            className="text-[11px] uppercase tracking-wider text-portal-blue hover:underline"
-          >
-            Manage schedule →
-          </Link>
-        </div>
+        {showManageLink && (
+          <div className="border-t border-portal-border-soft pt-2">
+            <Link
+              href="/admin/schedule"
+              className="text-[11px] uppercase tracking-wider text-portal-blue hover:underline"
+            >
+              Manage schedule →
+            </Link>
+          </div>
+        )}
       </PanelBody>
     </Panel>
   );

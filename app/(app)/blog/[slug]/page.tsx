@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Clock } from "lucide-react";
 import { requireSession } from "@/lib/auth/guards";
+import { isViewModeActive } from "@/lib/auth/viewMode";
 import { getPostBySlug, listPublishedPosts } from "@/lib/db/posts";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
@@ -28,7 +29,12 @@ export default async function PostDetailPage({ params }: { params: { slug: strin
   const post = await getPostBySlug(params.slug);
   if (!post) notFound();
   if (post.status !== "published") {
-    if (profile.role !== "manager" && post.author_id !== userId) notFound();
+    // While View Mode is active, an admin/author should NOT see drafts even of
+    // their own posts — the whole point is to simulate the viewer experience.
+    const viewMode = isViewModeActive();
+    const isOwner = post.author_id === userId;
+    const canBypass = !viewMode && (profile.role === "manager" || isOwner);
+    if (!canBypass) notFound();
   }
 
   const related = await listPublishedPosts({ authorId: post.author_id, limit: 4 });

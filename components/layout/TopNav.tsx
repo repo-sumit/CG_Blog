@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, BookOpen, PenSquare, FileText, ShieldCheck, LogOut } from "lucide-react";
-import type { ProfileRow } from "@/lib/db/types";
+import type { ProfileRow, AppRole } from "@/lib/db/types";
 import { canAuthor, isManager, roleLabel } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils/cn";
 import { Avatar } from "@/components/ui/Avatar";
 import { BrandLockup } from "@/components/portal/BrandLockup";
+import { ViewModeButton } from "@/components/layout/ViewModeButton";
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  show: (role: ProfileRow["role"]) => boolean;
+  show: (role: AppRole) => boolean;
 }
 
 const NAV: NavItem[] = [
@@ -24,9 +25,18 @@ const NAV: NavItem[] = [
   { href: "/admin",      label: "Admin",       icon: ShieldCheck,     show: (r) => isManager(r) },
 ];
 
-export function TopNav({ profile }: { profile: ProfileRow }) {
+interface Props {
+  profile: ProfileRow;
+  /** Effective role (demoted to "viewer" when view mode is active). */
+  effectiveRole: AppRole;
+  viewModeActive: boolean;
+}
+
+export function TopNav({ profile, effectiveRole, viewModeActive }: Props) {
   const pathname = usePathname();
-  const visibleNav = NAV.filter((i) => i.show(profile.role));
+  const visibleNav = NAV.filter((i) => i.show(effectiveRole));
+  // Only admins/authors can toggle view mode — viewers have nothing to switch from.
+  const canToggleViewMode = profile.role === "author" || profile.role === "manager";
 
   return (
     <header className="sticky top-0 z-40 border-b border-portal-border-soft bg-portal-main/90 backdrop-blur-md">
@@ -56,10 +66,12 @@ export function TopNav({ profile }: { profile: ProfileRow }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-3">
+          {canToggleViewMode && <ViewModeButton active={viewModeActive} />}
+
           <div className="hidden flex-col items-end leading-tight sm:flex">
             <span className="font-ui text-xs text-portal-text">{profile.full_name || profile.email}</span>
             <span className="font-ui text-[10px] uppercase tracking-wider text-portal-text-muted">
-              {roleLabel(profile.role)}
+              {viewModeActive ? "Viewer (preview)" : roleLabel(profile.role)}
             </span>
           </div>
           <Avatar src={profile.avatar_url} name={profile.full_name} email={profile.email} size="sm" />
@@ -76,7 +88,7 @@ export function TopNav({ profile }: { profile: ProfileRow }) {
         </div>
       </div>
 
-      {/* Mobile nav strip — only shown under md breakpoint */}
+      {/* Mobile nav strip */}
       <nav className="container mx-auto flex items-center gap-1 overflow-x-auto px-4 pb-3 md:hidden" aria-label="Primary mobile">
         {visibleNav.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");

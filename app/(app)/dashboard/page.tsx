@@ -7,6 +7,7 @@ import { listTeam } from "@/lib/db/profiles";
 import { listPostsThisWeek, listOwnPosts } from "@/lib/db/posts";
 import { weekStartISO, todayWeekday, weekdayLabel } from "@/lib/utils/dates";
 import { canAuthor, isManager } from "@/lib/auth/roles";
+import { effectiveRole } from "@/lib/auth/viewMode";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Panel, PanelBody, PanelHeader } from "@/components/portal/Panel";
@@ -21,6 +22,8 @@ export default async function DashboardPage() {
   const { profile, userId } = await requireSession();
   const supabase = createSupabaseServerClient();
   const wk = weekStartISO();
+  // When View Mode is active, every UI gate evaluates as a plain viewer.
+  const role = effectiveRole(profile.role);
 
   type SubmittedRow = {
     id: string;
@@ -33,11 +36,11 @@ export default async function DashboardPage() {
   const [team, postsThisWeek, ownPosts] = await Promise.all([
     listTeam(),
     listPostsThisWeek(wk),
-    canAuthor(profile.role) ? listOwnPosts(userId) : Promise.resolve([]),
+    canAuthor(role) ? listOwnPosts(userId) : Promise.resolve([]),
   ]);
 
   let submittedRows: SubmittedRow[] = [];
-  if (isManager(profile.role)) {
+  if (isManager(role)) {
     const { data } = await supabase
       .from("posts")
       .select("id,title,slug,updated_at,author:profiles!posts_author_id_fkey(full_name,email)")
@@ -73,7 +76,7 @@ export default async function DashboardPage() {
           post becomes part of the archive.
         </p>
         <div className="flex flex-wrap items-center gap-3 pt-1">
-          {canAuthor(profile.role) && (
+          {canAuthor(role) && (
             <Button asChild>
               <Link href="/editor/new">
                 <PenSquare className="h-4 w-4" />
@@ -89,7 +92,7 @@ export default async function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          {canAuthor(profile.role) && (
+          {canAuthor(role) && (
             <Panel>
               <PanelHeader>
                 <div className="font-hero text-base font-bold uppercase tracking-tighter text-portal-text">
@@ -117,7 +120,7 @@ export default async function DashboardPage() {
             </Panel>
           )}
 
-          {isManager(profile.role) && (
+          {isManager(role) && (
             <Panel>
               <PanelHeader>
                 <div className="font-hero text-base font-bold uppercase tracking-tighter text-portal-text">
@@ -170,7 +173,7 @@ export default async function DashboardPage() {
               {postsThisWeek.length === 0 ? (
                 <div className="rounded-md border border-dashed border-portal-border-soft p-10 text-center">
                   <p className="text-sm text-portal-text-muted">No posts have been transmitted this week yet.</p>
-                  {canAuthor(profile.role) && (
+                  {canAuthor(role) && (
                     <Button asChild className="mt-4">
                       <Link href="/editor/new">Be the first signal</Link>
                     </Button>
@@ -188,9 +191,13 @@ export default async function DashboardPage() {
         </div>
 
         <aside className="space-y-6">
-          <WeeklyScheduleCard team={team} postsByAuthorThisWeek={postsByAuthor} />
+          <WeeklyScheduleCard
+            team={team}
+            postsByAuthorThisWeek={postsByAuthor}
+            canManageSchedule={isManager(role)}
+          />
 
-          {isManager(profile.role) && (
+          {isManager(role) && (
             <Panel>
               <PanelHeader>
                 <div className="font-hero text-base font-bold uppercase tracking-tighter text-portal-text">
