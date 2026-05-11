@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "CG Signal — Team Blog Portal",
-  description: "Weekly transmissions from the ConveGenius.ai team.",
+  description: "Weekly transmissions from team Dhurandhar!",
 };
 
 interface SearchParams {
@@ -92,7 +92,7 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
                   signal feed.
                 </h1>
                 <p className="max-w-xl text-base leading-relaxed text-portal-text-muted">
-                  Weekly transmissions from across ConveGenius.ai — notes, retros,
+                  Weekly transmissions from team Dhurandhar! — notes, retros,
                   launches, and experiments, written by the people doing the work.
                 </p>
                 <div className="flex flex-wrap items-center gap-3 pt-2">

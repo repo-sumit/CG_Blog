@@ -2,43 +2,44 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Mail, Loader2 } from "lucide-react";
+import { Mail, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 /**
- * Newsletter sign-up section. There's no real email backend wired in yet,
- * so the form posts to a `mailto:` fallback — opening the user's mail client
- * with a pre-filled "subscribe me" message. When a real provider (Resend +
- * webhook, ConvertKit, Mailchimp, etc.) is connected, swap the `onSubmit`
- * handler for an actual POST.
- *
- * Intentionally feature-flagged — we do NOT fake an inbox/subscriber list.
+ * Newsletter sign-up — posts to `/api/subscribe`, which records the email in
+ * Supabase and fires a welcome email via Resend. Single opt-in.
  */
-
-const SUBSCRIBE_MAILTO = "team-blog@convegenius.ai";
-
 export function SubscribeSection() {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim()) return;
-    const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-    if (!valid) {
+    const trimmed = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       toast.error("Enter a valid email address.");
       return;
     }
     setSubmitting(true);
-    // Open the user's mail client. This is a placeholder until a real list
-    // provider is wired up — see the comment at the top of this file.
-    const subject = encodeURIComponent("Subscribe me to ConveGenius Weekly Signals");
-    const body = encodeURIComponent(`Please add this address to the CG Signal weekly digest: ${email.trim()}`);
-    window.location.href = `mailto:${SUBSCRIBE_MAILTO}?subject=${subject}&body=${body}`;
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed, source: "landing" }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || json.ok !== true) {
+        throw new Error(json.error || `HTTP ${res.status}`);
+      }
+      setDone(true);
+      toast.success("You're in — check your inbox for a welcome email.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Subscribe failed.";
+      toast.error(msg);
+    } finally {
       setSubmitting(false);
-      toast.success("Mail client opened — send the message to confirm.");
-    }, 300);
+    }
   }
 
   return (
@@ -61,38 +62,50 @@ export function SubscribeSection() {
               <span className="text-portal-text-muted">signal.</span>
             </h2>
             <p className="max-w-md text-sm leading-relaxed text-portal-text-muted">
-              One email per week. The latest transmissions from the team, nothing else.
+              One email per week. The latest transmissions from team Dhurandhar — nothing else.
               No spam, no tracking pixels, no daily nags.
             </p>
           </div>
 
-          <form
-            onSubmit={onSubmit}
-            className="space-y-3 rounded-md border border-portal-border-soft bg-portal-main/60 p-5 backdrop-blur"
-          >
-            <label className="block">
-              <span className="mb-1.5 block text-[10px] uppercase tracking-wider text-portal-text-muted">
-                Email
-              </span>
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="h-11 flex-1 rounded-pill border-2 border-portal-border-muted bg-portal-panel-soft px-4 font-ui text-sm text-portal-text placeholder:text-portal-text-soft focus-visible:border-portal-blue focus-visible:outline-none focus-visible:shadow-[0_0_0_4px_rgba(79,140,255,0.18)]"
-                />
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                  Subscribe
-                </Button>
+          {done ? (
+            <div className="rounded-md border border-portal-green/30 bg-portal-green/5 p-6 text-center backdrop-blur">
+              <CheckCircle2 className="mx-auto h-8 w-8 text-portal-green" />
+              <div className="mt-3 font-hero text-lg font-bold uppercase tracking-tighter text-portal-text">
+                You're subscribed
               </div>
-            </label>
-            <p className="text-[10px] uppercase tracking-wider text-portal-text-muted">
-              Internal digest · {SUBSCRIBE_MAILTO}
-            </p>
-          </form>
+              <p className="mt-2 text-sm text-portal-text-muted">
+                A welcome email is on the way. Look for it from CG Signal.
+              </p>
+            </div>
+          ) : (
+            <form
+              onSubmit={onSubmit}
+              className="space-y-3 rounded-md border border-portal-border-soft bg-portal-main/60 p-5 backdrop-blur"
+            >
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] uppercase tracking-wider text-portal-text-muted">
+                  Email
+                </span>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="h-11 flex-1 rounded-pill border-2 border-portal-border-muted bg-portal-panel-soft px-4 font-ui text-sm text-portal-text placeholder:text-portal-text-soft focus-visible:border-portal-blue focus-visible:outline-none focus-visible:shadow-[0_0_0_4px_rgba(79,140,255,0.18)]"
+                  />
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                    Subscribe
+                  </Button>
+                </div>
+              </label>
+              <p className="text-[10px] uppercase tracking-wider text-portal-text-muted">
+                Weekly · Mondays · Unsubscribe anytime
+              </p>
+            </form>
+          )}
         </div>
       </div>
     </section>
