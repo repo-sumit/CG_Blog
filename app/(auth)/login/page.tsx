@@ -4,16 +4,8 @@ import { getSessionContext } from "@/lib/auth/guards";
 import LoginForm from "@/components/auth/LoginForm";
 import { BrandLockup } from "@/components/portal/BrandLockup";
 import { SystemLabel, JapaneseLabel } from "@/components/portal/SystemLabel";
-import { Ticker } from "@/components/portal/Ticker";
 
 export const metadata: Metadata = { title: "Boot · Sign in" };
-
-const LOGIN_TICKER = [
-  "BOOT SEQUENCE INITIATED",
-  "DARK SIGNAL LOCKED",
-  "CONVEGENIUS PORTAL",
-  "AUTH GATE ACTIVE",
-];
 
 export default async function LoginPage({
   searchParams,
@@ -34,11 +26,7 @@ export default async function LoginPage({
       <div className="pointer-events-none absolute inset-0 hero-gradient opacity-90" aria-hidden />
       <div className="pointer-events-none absolute inset-0 grid-overlay opacity-30" aria-hidden />
 
-      <div className="container relative mx-auto flex min-h-screen flex-col px-4 py-6">
-        <div className="mb-8">
-          <Ticker items={LOGIN_TICKER} />
-        </div>
-
+      <div className="container relative mx-auto flex min-h-screen flex-col px-4 py-10">
         <div className="mx-auto flex w-full max-w-5xl flex-1 items-center">
           <div className="grid w-full gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
             {/* Left: hero / brand zone */}
