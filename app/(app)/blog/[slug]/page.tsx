@@ -8,8 +8,8 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Panel, PanelBody } from "@/components/portal/Panel";
-import { SystemLabel, JapaneseLabel } from "@/components/portal/SystemLabel";
 import { formatPostDate, weekdayLabel } from "@/lib/utils/dates";
+import { roleLabel } from "@/lib/auth/roles";
 import { sanitizeHtml } from "@/lib/editor/sanitize";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +21,6 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     description: post?.excerpt ?? undefined,
     robots: { index: false, follow: false },
   };
-}
-
-function ordinal(id: string): string {
-  const n = Math.abs(id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % 1000;
-  return n.toString().padStart(3, "0");
 }
 
 export default async function PostDetailPage({ params }: { params: { slug: string } }) {
@@ -47,44 +42,41 @@ export default async function PostDetailPage({ params }: { params: { slug: strin
       </Button>
 
       <article>
-        <div className="mb-4 flex items-center gap-3">
-          <SystemLabel tone="orange">{`${ordinal(post.id)} // Transmission`}</SystemLabel>
-          <JapaneseLabel>記事</JapaneseLabel>
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          {post.tags.map((t) => (
+            <Badge key={t.id} variant="secondary">{t.name}</Badge>
+          ))}
           {post.status !== "published" && <Badge variant="warning">{post.status}</Badge>}
           {post.assigned_weekday && <Badge variant="outline">{weekdayLabel(post.assigned_weekday)}</Badge>}
         </div>
 
-        {post.tags.length > 0 && (
-          <div className="mb-4 flex flex-wrap gap-1.5">
-            {post.tags.map((t) => (
-              <Badge key={t.id} variant="secondary">{t.name}</Badge>
-            ))}
-          </div>
-        )}
-
-        <h1 className="font-hero text-5xl font-bold uppercase leading-[0.95] tracking-tighter text-portal-text sm:text-6xl">
+        <h1 className="font-hero text-4xl font-bold uppercase leading-[1] tracking-tighter text-portal-text sm:text-5xl lg:text-6xl">
           {post.title}
         </h1>
         {post.excerpt && (
           <p className="mt-5 text-lg leading-relaxed text-portal-text-muted">{post.excerpt}</p>
         )}
 
-        <div className="mt-8 flex items-center gap-4 border-y-2 border-portal-border-soft py-4">
+        <div className="mt-8 flex items-center gap-4 border-y border-portal-border-soft py-4">
           <Avatar
             src={post.author?.avatar_url}
             name={post.author?.full_name}
             email={post.author?.email}
             size="lg"
           />
-          <div className="flex-1">
-            <div className="font-ui text-sm font-bold text-portal-text">
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-ui text-sm font-bold text-portal-text">
               {post.author?.full_name || post.author?.email}
             </div>
-            <SystemLabel className="mt-0.5">{post.author?.role}</SystemLabel>
+            <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
+              {roleLabel(post.author?.role)}
+            </div>
           </div>
           <div className="text-right">
-            <SystemLabel>{post.published_at ? formatPostDate(post.published_at) : "Draft"}</SystemLabel>
-            <div className="mt-1 inline-flex items-center gap-1 font-ui text-[10px] uppercase tracking-label text-portal-text-soft">
+            <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
+              {post.published_at ? formatPostDate(post.published_at) : "Draft"}
+            </div>
+            <div className="mt-1 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
               <Clock className="h-3 w-3" /> {post.read_time_minutes} min read
             </div>
           </div>
@@ -95,19 +87,18 @@ export default async function PostDetailPage({ params }: { params: { slug: strin
 
       {relatedFiltered.length > 0 && (
         <section className="mt-16">
-          <SystemLabel tone="orange" className="mb-3 block">More from this author</SystemLabel>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="mb-3 text-[11px] uppercase tracking-wider text-portal-text-muted">
+            More from this author
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             {relatedFiltered.map((p) => (
               <Panel key={p.id} variant="raised">
                 <PanelBody className="p-4">
-                  <SystemLabel>{`${ordinal(p.id)} // Archive`}</SystemLabel>
-                  <Link href={`/blog/${p.slug}`} className="mt-2 block font-ui font-bold text-portal-text hover:text-portal-orange">
+                  <Link href={`/blog/${p.slug}`} className="block font-ui font-bold text-portal-text hover:text-portal-orange">
                     {p.title}
                   </Link>
-                  <div className="mt-2">
-                    <SystemLabel>
-                      {p.published_at ? formatPostDate(p.published_at) : ""} · {p.read_time_minutes} min
-                    </SystemLabel>
+                  <div className="mt-2 text-[10px] uppercase tracking-wider text-portal-text-muted">
+                    {p.published_at ? formatPostDate(p.published_at) : ""} · {p.read_time_minutes} min
                   </div>
                 </PanelBody>
               </Panel>

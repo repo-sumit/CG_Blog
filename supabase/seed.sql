@@ -47,14 +47,21 @@ values (
 )
 on conflict do nothing;
 
--- Allowlist seed — ConveGenius team.
--- The auth callback also reconciles APP_MANAGER_EMAIL / APP_AUTHOR_EMAILS into
--- this table on each sign-in, but seeding here makes everyone visible in
--- /admin/users immediately, even before they've signed in for the first time.
+-- Allowlist — current team. Note: the `manager` role is shown as "Admin" in
+-- the UI but stored as `manager` in the DB enum (keeps RLS helpers stable).
 insert into public.authorized_users (email, role, weekly_post_day) values
-  ('sumit.kumar@convegenius.ai',   'manager', 1),  -- Monday
-  ('aditya.c@convegenius.ai',      'author',  2),  -- Tuesday
+  ('sumit.kumar@convegenius.ai',   'manager', 1),  -- Monday  · Admin
+  ('aditya.c@convegenius.ai',      'manager', 2),  -- Tuesday · Admin (promoted)
   ('om.kumar@convegenius.ai',      'author',  3),  -- Wednesday
   ('insha.naseem@convegenius.ai',  'author',  4),  -- Thursday
   ('aryan.singh@convegenius.ai',   'author',  5)   -- Friday
-on conflict (email) do nothing;
+on conflict (email) do update
+  set role = excluded.role,
+      weekly_post_day = excluded.weekly_post_day;
+
+-- Promote the matching profile rows too, in case the user has already signed in.
+update public.profiles
+  set role = au.role,
+      weekly_post_day = au.weekly_post_day
+  from public.authorized_users au
+  where lower(public.profiles.email) = lower(au.email);

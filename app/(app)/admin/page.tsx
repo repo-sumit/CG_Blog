@@ -4,7 +4,6 @@ import { Calendar, Users, Tag, BarChart3 } from "lucide-react";
 import { requireManager } from "@/lib/auth/guards";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Panel, PanelBody } from "@/components/portal/Panel";
-import { SystemLabel } from "@/components/portal/SystemLabel";
 import { weekStartISO } from "@/lib/utils/dates";
 
 export const metadata: Metadata = { title: "Admin" };
@@ -23,44 +22,42 @@ export default async function AdminHomePage() {
   ]);
 
   const sections = [
-    { href: "/admin/schedule",  code: "010", icon: Calendar,  title: "Schedule",  desc: "Assign weekdays to each team member." },
-    { href: "/admin/users",     code: "011", icon: Users,     title: "Users",     desc: "Manage the role allowlist." },
-    { href: "/admin/tags",      code: "012", icon: Tag,       title: "Tags",      desc: "Curate tags used across posts." },
-    { href: "/admin/analytics", code: "013", icon: BarChart3, title: "Analytics", desc: "Completion and content metrics." },
+    { href: "/admin/schedule",  icon: Calendar,  title: "Schedule",  desc: "Assign weekdays to each team member." },
+    { href: "/admin/users",     icon: Users,     title: "Users",     desc: "Manage the role allowlist." },
+    { href: "/admin/tags",      icon: Tag,       title: "Tags",      desc: "Curate tags used across posts." },
+    { href: "/admin/analytics", icon: BarChart3, title: "Analytics", desc: "Completion and content metrics." },
   ];
 
   return (
-    <div className="container mx-auto space-y-8 px-4 py-10">
-      <div className="space-y-2">
-        <SystemLabel tone="orange">{"005 // Admin Console"}</SystemLabel>
-        <h1 className="font-hero text-5xl font-bold uppercase tracking-tighter text-portal-text">Command Center</h1>
+    <div className="container mx-auto space-y-6 px-4 py-10">
+      <header className="space-y-2">
+        <h1 className="font-hero text-4xl font-bold uppercase tracking-tighter text-portal-text sm:text-5xl">
+          Admin
+        </h1>
         <p className="text-sm text-portal-text-muted">Manage the team blog portal.</p>
+      </header>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile label="Team size" value={teamCount ?? 0} />
+        <StatTile label="Published this week" value={publishedCount ?? 0} tone="green" />
+        <StatTile label="Awaiting review" value={submittedCount ?? 0} tone="orange" />
+        <StatTile label="All drafts" value={draftsCount ?? 0} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Team Size" value={teamCount ?? 0} />
-        <StatTile label="Published This Week" value={publishedCount ?? 0} tone="green" />
-        <StatTile label="Awaiting Review" value={submittedCount ?? 0} tone="orange" />
-        <StatTile label="All Drafts" value={draftsCount ?? 0} />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         {sections.map((s) => {
           const Icon = s.icon;
           return (
             <Link
               key={s.href}
               href={s.href}
-              className="group rounded-panel border-2 border-portal-border-soft bg-portal-panel-raised p-6 shadow-portal transition-all hover:-translate-y-0.5 hover:border-portal-border-main hover:shadow-glow"
+              className="group rounded-md border border-portal-border-soft bg-portal-panel p-6 transition-colors hover:border-portal-border-muted"
             >
-              <div className="mb-3 flex items-center justify-between">
-                <SystemLabel tone="orange">{`${s.code} // ${s.title}`}</SystemLabel>
-                <Icon className="h-4 w-4 text-portal-text-muted group-hover:text-portal-orange" />
-              </div>
-              <h2 className="font-hero text-xl font-bold uppercase tracking-tighter text-portal-text group-hover:text-portal-orange">
+              <Icon className="h-5 w-5 text-portal-text-muted group-hover:text-portal-orange" />
+              <h2 className="mt-3 font-hero text-lg font-bold uppercase tracking-tighter text-portal-text group-hover:text-portal-orange">
                 {s.title}
               </h2>
-              <p className="mt-2 text-sm text-portal-text-muted">{s.desc}</p>
+              <p className="mt-1.5 text-sm text-portal-text-muted">{s.desc}</p>
             </Link>
           );
         })}
@@ -74,8 +71,8 @@ function StatTile({ label, value, tone = "default" }: { label: string; value: nu
   return (
     <Panel>
       <PanelBody className="p-5">
-        <SystemLabel>{label}</SystemLabel>
-        <div className={`mt-2 font-hero text-4xl font-bold tracking-tighter ${color}`}>{value}</div>
+        <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">{label}</div>
+        <div className={`mt-2 font-hero text-3xl font-bold tracking-tighter ${color}`}>{value}</div>
       </PanelBody>
     </Panel>
   );

@@ -6,33 +6,49 @@ import { listOwnPosts } from "@/lib/db/posts";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Panel, PanelBody, PanelHeader } from "@/components/portal/Panel";
-import { SystemLabel } from "@/components/portal/SystemLabel";
+import { PostRowActions } from "@/components/blog/PostRowActions";
 import { formatPostDate } from "@/lib/utils/dates";
+import { isManager } from "@/lib/auth/roles";
 
 export const metadata: Metadata = { title: "My posts" };
 export const dynamic = "force-dynamic";
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "muted" | "success" | "warning"> = {
+const STATUS_VARIANT: Record<string, "default" | "secondary" | "muted" | "success" | "warning" | "destructive"> = {
   published: "success",
   scheduled: "default",
   submitted: "warning",
   draft: "muted",
-  archived: "secondary",
+  archived: "destructive",
 };
 
+const RETENTION_DAYS = 30;
+
+function daysUntilPurge(archivedAt: string | null): number | null {
+  if (!archivedAt) return null;
+  const archived = new Date(archivedAt).getTime();
+  const purgeAt = archived + RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.ceil((purgeAt - Date.now()) / (24 * 60 * 60 * 1000)));
+}
+
 export default async function MyPostsPage() {
-  const { userId } = await requireAuthor();
+  const { userId, profile } = await requireAuthor();
   const posts = await listOwnPosts(userId);
 
-  const grouped: Record<string, typeof posts> = { draft: [], submitted: [], scheduled: [], published: [], archived: [] };
-  for (const p of posts) grouped[p.status]!.push(p);
+  const live = posts.filter((p) => p.status !== "archived");
+  const trashed = posts.filter((p) => p.status === "archived");
+
+  const grouped: Record<string, typeof live> = { draft: [], submitted: [], scheduled: [], published: [] };
+  for (const p of live) {
+    if (grouped[p.status]) grouped[p.status]!.push(p);
+  }
 
   return (
-    <div className="container mx-auto space-y-8 px-4 py-10">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="container mx-auto space-y-6 px-4 py-10">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <SystemLabel tone="orange">{"003 // Personal Archive"}</SystemLabel>
-          <h1 className="font-hero text-5xl font-bold uppercase tracking-tighter text-portal-text">My Posts</h1>
+          <h1 className="font-hero text-4xl font-bold uppercase tracking-tighter text-portal-text sm:text-5xl">
+            My Posts
+          </h1>
           <p className="text-sm text-portal-text-muted">Every signal you've broadcast, every draft you've started.</p>
         </div>
         <Button asChild>
@@ -40,13 +56,12 @@ export default async function MyPostsPage() {
             <Plus className="h-4 w-4" /> New Transmission
           </Link>
         </Button>
-      </div>
+      </header>
 
-      {posts.length === 0 ? (
+      {live.length === 0 && trashed.length === 0 ? (
         <Panel>
           <PanelBody className="p-16 text-center">
-            <SystemLabel className="mb-3 block">Archive Empty</SystemLabel>
-            <h2 className="font-hero text-2xl font-bold uppercase text-portal-text">No transmissions yet</h2>
+            <h2 className="font-hero text-xl font-bold uppercase text-portal-text">No transmissions yet</h2>
             <p className="mt-2 text-sm text-portal-text-muted">Start your first weekly update.</p>
             <Button asChild className="mt-5">
               <Link href="/editor/new">Create your first post</Link>
@@ -54,30 +69,28 @@ export default async function MyPostsPage() {
           </PanelBody>
         </Panel>
       ) : (
-        <div className="space-y-6">
-          {(["draft", "submitted", "scheduled", "published", "archived"] as const).map((status) =>
+        <>
+          {(["draft", "submitted", "scheduled", "published"] as const).map((status) =>
             (grouped[status]?.length ?? 0) > 0 ? (
               <Panel key={status}>
                 <PanelHeader>
-                  <div className="flex items-center gap-3">
-                    <SystemLabel tone="orange">{`// ${status}`}</SystemLabel>
-                    <span className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text">
-                      {status} ({grouped[status]!.length})
-                    </span>
+                  <div className="font-hero text-base font-bold uppercase tracking-tighter text-portal-text capitalize">
+                    {status} ({grouped[status]!.length})
                   </div>
                 </PanelHeader>
                 <PanelBody className="p-0">
-                  <ul className="divide-y-2 divide-portal-border-soft">
+                  <ul className="divide-y divide-portal-border-soft">
                     {grouped[status]!.map((p) => (
                       <li key={p.id} className="flex items-center justify-between gap-3 px-6 py-4">
                         <div className="min-w-0 flex-1">
-                          <Link href={`/editor/${p.id}`} className="font-ui font-bold text-portal-text hover:text-portal-orange">
+                          <Link
+                            href={`/editor/${p.id}`}
+                            className="font-ui font-bold text-portal-text hover:text-portal-orange"
+                          >
                             {p.title || "Untitled"}
                           </Link>
-                          <div className="mt-1">
-                            <SystemLabel>
-                              Week of {formatPostDate(p.week_start_date)} · updated {formatPostDate(p.updated_at)}
-                            </SystemLabel>
+                          <div className="mt-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
+                            Week of {formatPostDate(p.week_start_date)} · updated {formatPostDate(p.updated_at)}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -90,6 +103,11 @@ export default async function MyPostsPage() {
                               <Link href={`/blog/${p.slug}`}>View</Link>
                             </Button>
                           )}
+                          <PostRowActions
+                            postId={p.id}
+                            status={p.status}
+                            canPermanentDelete={isManager(profile.role)}
+                          />
                         </div>
                       </li>
                     ))}
@@ -98,7 +116,46 @@ export default async function MyPostsPage() {
               </Panel>
             ) : null,
           )}
-        </div>
+
+          {/* Trash bin — archived posts auto-purge after 30 days */}
+          {trashed.length > 0 && (
+            <Panel>
+              <PanelHeader>
+                <div className="font-hero text-base font-bold uppercase tracking-tighter text-portal-text">
+                  Trash ({trashed.length})
+                </div>
+                <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
+                  Auto-purge after {RETENTION_DAYS} days
+                </div>
+              </PanelHeader>
+              <PanelBody className="p-0">
+                <ul className="divide-y divide-portal-border-soft">
+                  {trashed.map((p) => {
+                    const daysLeft = daysUntilPurge(p.archived_at);
+                    return (
+                      <li key={p.id} className="flex items-center justify-between gap-3 px-6 py-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-ui font-bold text-portal-text-muted line-through">
+                            {p.title || "Untitled"}
+                          </div>
+                          <div className="mt-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
+                            Deleted {p.archived_at ? formatPostDate(p.archived_at) : ""}
+                            {daysLeft !== null ? ` · purges in ${daysLeft} day${daysLeft === 1 ? "" : "s"}` : ""}
+                          </div>
+                        </div>
+                        <PostRowActions
+                          postId={p.id}
+                          status={p.status}
+                          canPermanentDelete={isManager(profile.role)}
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </PanelBody>
+            </Panel>
+          )}
+        </>
       )}
     </div>
   );

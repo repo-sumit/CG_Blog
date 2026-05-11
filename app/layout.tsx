@@ -37,12 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${spaceMono.variable} ${orbitron.variable}`}>
       <body className="min-h-screen bg-portal-main text-portal-text antialiased">
-        {/* Subtle full-page grid overlay — gives every screen the OS-surface feel. */}
-        <div
-          aria-hidden
-          className="pointer-events-none fixed inset-0 grid-overlay opacity-60 z-0"
-        />
-        <div className="relative z-10">{children}</div>
+        {children}
         <Toaster
           theme="dark"
           richColors

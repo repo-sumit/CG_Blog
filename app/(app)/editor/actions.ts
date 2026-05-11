@@ -171,20 +171,86 @@ export async function createDraftFromTemplate(): Promise<SavePostResult> {
   });
 }
 
-export async function archivePost(id: string): Promise<SavePostResult> {
+/**
+ * Soft delete: mark as archived. Recoverable for 30 days via `restorePost`.
+ * After 30 days, the cron at /api/cron/cleanup-archived hard-deletes the row.
+ */
+export async function softDeletePost(id: string): Promise<SavePostResult> {
+  const parsed = z.string().uuid().safeParse(id);
+  if (!parsed.success) return { ok: false, error: "Invalid post id." };
   const { userId, profile } = await requireSession();
   const supabase = createSupabaseServerClient();
-  const { data: existing } = await supabase.from("posts").select("author_id, slug").eq("id", id).maybeSingle();
+  const { data: existing } = await supabase
+    .from("posts")
+    .select("author_id, slug, status")
+    .eq("id", parsed.data)
+    .maybeSingle();
   if (!existing) return { ok: false, error: "Post not found." };
   if ((existing as { author_id: string }).author_id !== userId && profile.role !== "manager") {
-    return { ok: false, error: "You cannot archive this post." };
+    return { ok: false, error: "You can only delete your own posts." };
   }
   const { error } = await supabase
     .from("posts")
     .update({ status: "archived", archived_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", parsed.data);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/blog");
   revalidatePath("/me/posts");
-  return { ok: true, id, slug: (existing as { slug: string }).slug };
+  revalidatePath("/dashboard");
+  return { ok: true, id: parsed.data, slug: (existing as { slug: string }).slug };
 }
+
+/** Restore a soft-deleted post back to draft state. */
+export async function restorePost(id: string): Promise<SavePostResult> {
+  const parsed = z.string().uuid().safeParse(id);
+  if (!parsed.success) return { ok: false, error: "Invalid post id." };
+  const { userId, profile } = await requireSession();
+  const supabase = createSupabaseServerClient();
+  const { data: existing } = await supabase
+    .from("posts")
+    .select("author_id, slug, status")
+    .eq("id", parsed.data)
+    .maybeSingle();
+  if (!existing) return { ok: false, error: "Post not found." };
+  if ((existing as { author_id: string }).author_id !== userId && profile.role !== "manager") {
+    return { ok: false, error: "You can only restore your own posts." };
+  }
+  if ((existing as { status: string }).status !== "archived") {
+    return { ok: false, error: "Post is not archived." };
+  }
+  const { error } = await supabase
+    .from("posts")
+    .update({ status: "draft", archived_at: null })
+    .eq("id", parsed.data);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/me/posts");
+  revalidatePath("/dashboard");
+  return { ok: true, id: parsed.data, slug: (existing as { slug: string }).slug };
+}
+
+/**
+ * Permanent delete — manager-only. Used both by the admin UI and by the
+ * cron that purges posts past their 30-day archival window.
+ */
+export async function permanentDeletePost(id: string): Promise<SavePostResult> {
+  const parsed = z.string().uuid().safeParse(id);
+  if (!parsed.success) return { ok: false, error: "Invalid post id." };
+  const { profile } = await requireSession();
+  if (profile.role !== "manager") {
+    return { ok: false, error: "Only admins can permanently delete posts." };
+  }
+  const supabase = createSupabaseServerClient();
+  // Cascade: post_tags rows are deleted by FK on cascade; media_assets keep
+  // their rows but post_id becomes null (FK is on delete set null).
+  const { error } = await supabase.from("posts").delete().eq("id", parsed.data);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/blog");
+  revalidatePath("/me/posts");
+  return { ok: true, id: parsed.data };
+}
+
+/**
+ * @deprecated Use softDeletePost — kept as an alias so old callers keep
+ * compiling. Will be removed in a follow-up.
+ */
+export const archivePost = softDeletePost;

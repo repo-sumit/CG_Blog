@@ -6,7 +6,6 @@ import { Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Panel, PanelBody, PanelHeader } from "@/components/portal/Panel";
-import { SystemLabel } from "@/components/portal/SystemLabel";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isValidDomain } from "@/lib/auth/roles";
 import { publicEnv } from "@/lib/env";
@@ -43,7 +42,7 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
       });
       if (error) throw error;
       setSent(true);
-      toast.success("Signal sent — check your inbox.");
+      toast.success("Sign-in link sent — check your inbox.");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to send magic link.";
       setError(msg);
@@ -75,16 +74,12 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
   return (
     <Panel variant="bright" className="w-full">
       <PanelHeader>
-        <div className="flex flex-col">
-          <SystemLabel tone="orange">{"002 // SIGN IN"}</SystemLabel>
-          <div className="font-hero text-2xl font-bold uppercase tracking-tighter text-portal-text mt-1">
-            Authenticate
-          </div>
+        <div className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text">
+          Sign in
         </div>
-        <SystemLabel dot tone="green">Active</SystemLabel>
       </PanelHeader>
 
-      <PanelBody className="space-y-5">
+      <PanelBody className="space-y-4">
         <Button
           type="button"
           variant="outline"
@@ -103,21 +98,18 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
 
         <div className="flex items-center gap-3">
           <div className="h-px flex-1 bg-portal-border-soft" />
-          <SystemLabel>or magic link</SystemLabel>
+          <span className="text-[10px] uppercase tracking-wider text-portal-text-muted">or magic link</span>
           <div className="h-px flex-1 bg-portal-border-soft" />
         </div>
 
         {sent ? (
-          <div className="rounded-md border-2 border-portal-green/30 bg-portal-green/5 p-4">
-            <SystemLabel tone="green" dot className="mb-1">Transmission Sent</SystemLabel>
-            <div className="text-sm text-portal-text">
-              Open the sign-in link from <span className="text-portal-text font-bold">{email}</span> in this browser.
-            </div>
+          <div className="rounded-md border border-portal-green/30 bg-portal-green/5 p-4 text-sm text-portal-text">
+            Sign-in link sent to <span className="font-bold">{email}</span>. Open it in this browser.
           </div>
         ) : (
           <form onSubmit={handleMagicLink} className="space-y-3">
             <label className="block">
-              <SystemLabel className="mb-2 block">Email</SystemLabel>
+              <span className="mb-1.5 block text-[10px] uppercase tracking-wider text-portal-text-muted">Email</span>
               <Input
                 type="email"
                 autoComplete="email"
@@ -129,7 +121,7 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
             </label>
             <Button type="submit" className="w-full" disabled={sending}>
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              Send Magic Link
+              Send magic link
             </Button>
           </form>
         )}
@@ -137,15 +129,15 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
         {error && (
           <div
             role="alert"
-            className="rounded-md border-2 border-portal-red/40 bg-portal-red/5 p-3 text-sm text-portal-red"
+            className="rounded-md border border-portal-red/40 bg-portal-red/5 p-3 text-sm text-portal-red"
           >
             {decodeURIComponent(error)}
           </div>
         )}
 
-        <div className="border-t-2 border-portal-border-soft pt-3 text-center">
-          <SystemLabel>Hint: use your @{ALLOWED_DOMAIN} address</SystemLabel>
-        </div>
+        <p className="border-t border-portal-border-soft pt-3 text-center text-[10px] uppercase tracking-wider text-portal-text-muted">
+          Use your @{ALLOWED_DOMAIN} address
+        </p>
       </PanelBody>
     </Panel>
   );

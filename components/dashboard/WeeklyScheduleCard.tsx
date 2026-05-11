@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarCheck2, CalendarClock } from "lucide-react";
+import { CalendarClock } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { Panel, PanelBody, PanelHeader } from "@/components/portal/Panel";
@@ -21,33 +21,31 @@ export function WeeklyScheduleCard({ team, postsByAuthorThisWeek }: Props) {
   return (
     <Panel>
       <PanelHeader>
-        <div>
-          <SystemLabel tone="orange">{"003 // Schedule"}</SystemLabel>
-          <div className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text mt-1">
-            <CalendarCheck2 className="inline h-4 w-4 mr-2 text-portal-orange" />
-            Weekly Slot Map
-          </div>
+        <div className="font-hero text-base font-bold uppercase tracking-tighter text-portal-text">
+          Schedule
         </div>
         <SystemLabel>{formatWeekRange()}</SystemLabel>
       </PanelHeader>
 
       <PanelBody className="space-y-4">
         {todaysAuthor && (
-          <div className="rounded-md border-2 border-portal-orange/30 bg-portal-orange/5 p-3">
-            <SystemLabel tone="orange" dot>Today’s Author</SystemLabel>
+          <div className="rounded-md border border-portal-orange/30 bg-portal-orange/5 p-3">
+            <div className="text-[10px] uppercase tracking-wider text-portal-orange">Today’s author</div>
             <div className="mt-2 flex items-center gap-3">
               <Avatar src={todaysAuthor.avatar_url} name={todaysAuthor.full_name} email={todaysAuthor.email} />
-              <div className="flex-1">
-                <div className="font-ui text-sm font-bold text-portal-text">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-ui text-sm font-bold text-portal-text">
                   {todaysAuthor.full_name || todaysAuthor.email}
                 </div>
-                <SystemLabel>{weekdayLabel(today!)}</SystemLabel>
+                <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
+                  {weekdayLabel(today!)}
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        <ul className="space-y-1.5">
+        <ul className="space-y-1">
           {[1, 2, 3, 4, 5].map((d) => {
             const owner = byDay[d];
             const posted = owner ? (postsByAuthorThisWeek[owner.id] ?? 0) > 0 : false;
@@ -56,17 +54,19 @@ export function WeeklyScheduleCard({ team, postsByAuthorThisWeek }: Props) {
               <li
                 key={d}
                 className={
-                  "flex items-center gap-3 rounded-md px-3 py-2 " +
-                  (isToday ? "bg-portal-panel-raised border border-portal-border-muted" : "")
+                  "flex items-center gap-3 rounded-md px-2 py-1.5 " +
+                  (isToday ? "bg-portal-panel-raised" : "")
                 }
               >
-                <span className="w-16 font-ui text-[10px] uppercase tracking-label text-portal-text-soft">
+                <span className="w-16 text-[10px] uppercase tracking-wider text-portal-text-muted">
                   {weekdayLabel(d)}
                 </span>
                 {owner ? (
                   <>
                     <Avatar src={owner.avatar_url} name={owner.full_name} email={owner.email} size="sm" />
-                    <span className="flex-1 truncate font-ui text-xs text-portal-text">{owner.full_name || owner.email}</span>
+                    <span className="min-w-0 flex-1 truncate font-ui text-xs text-portal-text">
+                      {owner.full_name || owner.email}
+                    </span>
                     {posted ? (
                       <Badge variant="success">Posted</Badge>
                     ) : isToday ? (
@@ -78,15 +78,18 @@ export function WeeklyScheduleCard({ team, postsByAuthorThisWeek }: Props) {
                     )}
                   </>
                 ) : (
-                  <span className="font-ui text-[10px] uppercase tracking-label text-portal-text-soft">Unassigned</span>
+                  <span className="text-[10px] uppercase tracking-wider text-portal-text-muted italic">Unassigned</span>
                 )}
               </li>
             );
           })}
         </ul>
 
-        <div className="border-t-2 border-portal-border-soft pt-3">
-          <Link href="/admin/schedule" className="font-ui text-[10px] uppercase tracking-label text-portal-blue hover:underline">
+        <div className="border-t border-portal-border-soft pt-2">
+          <Link
+            href="/admin/schedule"
+            className="text-[11px] uppercase tracking-wider text-portal-blue hover:underline"
+          >
             Manage schedule →
           </Link>
         </div>

@@ -10,15 +10,25 @@ export const publicEnv = {
   maxUploadMb: Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB ?? "50"),
 } as const;
 
+function splitEmails(raw: string | undefined): string[] {
+  return (raw ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export function serverEnv() {
+  // APP_MANAGER_EMAIL accepts a single email OR a comma-separated list so we
+  // can have multiple admins (e.g. Sumit + Aditya) without renaming the var.
+  const managerEmails = splitEmails(process.env.APP_MANAGER_EMAIL);
   return {
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
     allowedDomain: (process.env.APP_ALLOWED_EMAIL_DOMAIN ?? "convegenius.ai").toLowerCase(),
-    managerEmail: (process.env.APP_MANAGER_EMAIL ?? "").toLowerCase(),
-    authorEmails: (process.env.APP_AUTHOR_EMAILS ?? "")
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean),
+    managerEmails,
+    /** @deprecated kept for backwards-compat with existing callers; use managerEmails. */
+    managerEmail: managerEmails[0] ?? "",
+    authorEmails: splitEmails(process.env.APP_AUTHOR_EMAILS),
+    cronSecret: process.env.CRON_SECRET ?? "",
   };
 }
 

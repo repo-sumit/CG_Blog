@@ -16,11 +16,11 @@
     --bg-panel-soft: #0f1218;
     --bg-inverse: #f4f0df;
 
-    /* Text ---------------------------------------------------- */
+    /* Text — slightly brighter muted/soft tones for better readability */
     --text-main: #f5f1e8;
-    --text-muted: #a8a294;
-    --text-soft: #6f6a5f;
-    --text-inverse: #111111;
+    --text-muted: #c5c0b3;
+    --text-soft: #8b8678;
+    --text-inverse: #0a0a0a;
 
     /* Borders ------------------------------------------------- */
     --border-main: #f5f1e8;
@@ -38,8 +38,10 @@
     /* Patterns ------------------------------------------------ */
     --pixel-dark: #08090d;
     --pixel-light: #f5f1e8;
-    --grid-line: rgba(245, 241, 232, 0.08);
-    --noise-opacity: 0.055;
+    /* Patterns made considerably softer so the grid overlay reads as texture,
+       not a competing layer */
+    --grid-line: rgba(245, 241, 232, 0.035);
+    --noise-opacity: 0.04;
 
     /* Shadows ------------------------------------------------- */
     --shadow-soft: 0 18px 50px rgba(0, 0, 0, 0.42);
@@ -86,7 +88,7 @@
     --secondary-foreground: 40 30% 94%;
 
     --muted: 222 18% 14%;
-    --muted-foreground: 40 8% 64%;
+    --muted-foreground: 40 12% 74%;
 
     --accent: 16 100% 56%;              /* accent orange */
     --accent-foreground: 220 20% 5%;
@@ -200,24 +202,26 @@
    Components
    ============================================================ */
 @layer components {
-  /* Signature panel — outlined dark card */
+  /* Signature panel — outlined dark card. 1px border feels modern at panel
+     scale; only the "bright" variant keeps the heavier 1.5px treatment to
+     stay punchy. */
   .portal-panel {
     background: var(--bg-panel);
-    border: 2px solid var(--border-soft);
-    border-radius: var(--radius-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
     box-shadow: var(--shadow-panel);
     overflow: hidden;
   }
   .portal-panel-raised {
     background: var(--bg-panel-raised);
-    border: 2px solid var(--border-soft);
-    border-radius: var(--radius-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
     box-shadow: var(--shadow-panel);
   }
   .portal-panel-bright {
     background: var(--bg-panel);
-    border: 2px solid var(--border-main);
-    border-radius: var(--radius-panel);
+    border: 1.5px solid var(--border-muted);
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-panel);
   }
 

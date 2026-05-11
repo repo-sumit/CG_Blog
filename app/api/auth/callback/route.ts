@@ -45,17 +45,22 @@ export async function GET(request: NextRequest) {
     const service = createSupabaseServiceClient();
 
     // Env-driven sync into authorized_users. Order matters:
-    //   1. Manager email -> upsert as manager (always wins).
-    //   2. Author emails -> insert only if not already in the table (do NOT
-    //      overwrite, otherwise a teammate promoted to manager via /admin/users
-    //      would get demoted back to "author" on their next sign-in).
-    //   3. Skip the manager email from the authors loop entirely.
-    if (env.managerEmail) {
+    //   1. Every email in APP_MANAGER_EMAIL (now supports comma-separated list)
+    //      is upserted as `manager` — always wins.
+    //   2. Author emails are inserted only if they don't already exist (so a
+    //      teammate promoted to manager via /admin/users isn't demoted on
+    //      their next sign-in).
+    //   3. The manager list is excluded from the authors loop.
+    if (env.managerEmails.length > 0) {
       await service
         .from("authorized_users")
-        .upsert({ email: env.managerEmail, role: "manager" }, { onConflict: "email" });
+        .upsert(
+          env.managerEmails.map((email) => ({ email, role: "manager" as const })),
+          { onConflict: "email" },
+        );
     }
-    const authorEmailsToSeed = env.authorEmails.filter((a) => a !== env.managerEmail);
+    const managerSet = new Set(env.managerEmails);
+    const authorEmailsToSeed = env.authorEmails.filter((a) => !managerSet.has(a));
     if (authorEmailsToSeed.length > 0) {
       await service
         .from("authorized_users")

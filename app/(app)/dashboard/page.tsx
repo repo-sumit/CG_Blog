@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PenSquare, ListTodo, CheckCircle2, AlertCircle } from "lucide-react";
+import { PenSquare, ListTodo, CheckCircle2 } from "lucide-react";
 import { requireSession } from "@/lib/auth/guards";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listTeam } from "@/lib/db/profiles";
@@ -10,7 +10,7 @@ import { canAuthor, isManager } from "@/lib/auth/roles";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Panel, PanelBody, PanelHeader } from "@/components/portal/Panel";
-import { SystemLabel, JapaneseLabel } from "@/components/portal/SystemLabel";
+import { SystemLabel } from "@/components/portal/SystemLabel";
 import { WeeklyScheduleCard } from "@/components/dashboard/WeeklyScheduleCard";
 import { PostCard } from "@/components/blog/PostCard";
 
@@ -48,12 +48,9 @@ export default async function DashboardPage() {
   }
 
   const postsByAuthor: Record<string, number> = {};
-  for (const p of postsThisWeek) {
-    postsByAuthor[p.author_id] = (postsByAuthor[p.author_id] ?? 0) + 1;
-  }
-  const completion = team.length > 0
-    ? Math.round((Object.keys(postsByAuthor).length / team.length) * 100)
-    : 0;
+  for (const p of postsThisWeek) postsByAuthor[p.author_id] = (postsByAuthor[p.author_id] ?? 0) + 1;
+  const completion =
+    team.length > 0 ? Math.round((Object.keys(postsByAuthor).length / team.length) * 100) : 0;
 
   const myDay = profile.weekly_post_day ?? null;
   const myDraftThisWeek = ownPosts.find(
@@ -63,58 +60,46 @@ export default async function DashboardPage() {
   const firstName = profile.full_name?.split(" ")[0] || profile.email.split("@")[0];
 
   return (
-    <div className="container mx-auto space-y-10 px-4 py-10">
-      {/* Hero block */}
-      <Panel variant="bright" pattern="grid" className="relative">
-        <div className="p-8 sm:p-12 space-y-6">
-          <div className="flex items-center justify-between">
-            <SystemLabel tone="orange">{"001 // Welcome Back"}</SystemLabel>
-            <JapaneseLabel className="hidden sm:inline">ポータル · 通信</JapaneseLabel>
-          </div>
-          <h1 className="font-hero text-4xl font-bold uppercase tracking-tighter text-portal-text sm:text-6xl">
-            {firstName}.
-            <br />
-            <span className="text-portal-text-muted">Signal received.</span>
-          </h1>
-          <p className="max-w-xl text-sm text-portal-text-muted">
-            What the team is broadcasting this week. Pick up your assigned day or
-            jump in early — every post becomes part of the archive.
-          </p>
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            {canAuthor(profile.role) && (
-              <Button asChild>
-                <Link href="/editor/new">
-                  <PenSquare className="h-4 w-4" />
-                  New Transmission
-                </Link>
-              </Button>
-            )}
-            <Button asChild variant="outline">
-              <Link href="/blog">Open Signal Feed</Link>
+    <div className="container mx-auto space-y-8 px-4 py-10">
+      {/* Hero block — minimal, no decorative pattern */}
+      <section className="space-y-4">
+        <SystemLabel tone="orange">Welcome back</SystemLabel>
+        <h1 className="font-hero text-4xl font-bold uppercase tracking-tighter text-portal-text sm:text-5xl">
+          {firstName}.
+          <span className="text-portal-text-muted"> Signal received.</span>
+        </h1>
+        <p className="max-w-xl text-sm text-portal-text-muted">
+          What the team is broadcasting this week. Pick up your assigned day or jump in early — every
+          post becomes part of the archive.
+        </p>
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          {canAuthor(profile.role) && (
+            <Button asChild>
+              <Link href="/editor/new">
+                <PenSquare className="h-4 w-4" />
+                New Transmission
+              </Link>
             </Button>
-            <SystemLabel tone="green" dot>Portal Active</SystemLabel>
-          </div>
+          )}
+          <Button asChild variant="outline">
+            <Link href="/blog">Open Signal Feed</Link>
+          </Button>
         </div>
-      </Panel>
+      </section>
 
-      {/* 3-column body */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {canAuthor(profile.role) && (
             <Panel>
               <PanelHeader>
-                <div>
-                  <SystemLabel tone="orange">{"002 // Your Week"}</SystemLabel>
-                  <div className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text mt-1">
-                    Author Status
-                  </div>
+                <div className="font-hero text-base font-bold uppercase tracking-tighter text-portal-text">
+                  Your week
                 </div>
-                <SystemLabel>{profile.role}</SystemLabel>
               </PanelHeader>
               <PanelBody className="grid gap-3 sm:grid-cols-3">
-                <StatBox label="Assigned Day" value={myDay ? weekdayLabel(myDay) : "Unassigned"} />
+                <StatBox label="Assigned day" value={myDay ? weekdayLabel(myDay) : "Unassigned"} />
                 <StatBox
-                  label="This Week's Post"
+                  label="This week's post"
                   value={myDraftThisWeek ? "Draft in progress" : "Not started"}
                   href={myDraftThisWeek ? `/editor/${myDraftThisWeek.id}` : "/editor/new"}
                 />
@@ -135,29 +120,32 @@ export default async function DashboardPage() {
           {isManager(profile.role) && (
             <Panel>
               <PanelHeader>
-                <div>
-                  <SystemLabel tone="orange">{"004 // Review Queue"}</SystemLabel>
-                  <div className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text mt-1">
-                    Awaiting Approval
-                  </div>
+                <div className="font-hero text-base font-bold uppercase tracking-tighter text-portal-text">
+                  Awaiting your review
                 </div>
-                <Badge variant="muted"><ListTodo className="h-3 w-3" /> {submittedRows.length}</Badge>
+                <Badge variant="muted">
+                  <ListTodo className="h-3 w-3" /> {submittedRows.length}
+                </Badge>
               </PanelHeader>
               <PanelBody>
                 {submittedRows.length === 0 ? (
-                  <div className="rounded-md border border-portal-border-soft p-4 text-center">
-                    <SystemLabel>Queue Clear · No submissions</SystemLabel>
-                  </div>
+                  <p className="text-sm text-portal-text-muted">No submissions waiting.</p>
                 ) : (
                   <ul className="space-y-2">
                     {submittedRows.map((p) => (
-                      <li key={p.id} className="flex items-center justify-between rounded-md border-2 border-portal-border-soft bg-portal-panel-soft p-3">
-                        <div>
-                          <Link href={`/editor/${p.id}`} className="font-ui font-bold text-portal-text hover:text-portal-orange">
+                      <li
+                        key={p.id}
+                        className="flex items-center justify-between gap-3 rounded-md border border-portal-border-soft bg-portal-panel-soft p-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <Link
+                            href={`/editor/${p.id}`}
+                            className="block truncate font-ui font-bold text-portal-text hover:text-portal-orange"
+                          >
                             {p.title || "Untitled"}
                           </Link>
-                          <div className="mt-0.5">
-                            <SystemLabel>{p.author?.full_name || p.author?.email}</SystemLabel>
+                          <div className="mt-0.5 text-[11px] text-portal-text-muted">
+                            {p.author?.full_name || p.author?.email}
                           </div>
                         </div>
                         <Button asChild size="sm" variant="outline">
@@ -173,18 +161,14 @@ export default async function DashboardPage() {
 
           <Panel>
             <PanelHeader>
-              <div>
-                <SystemLabel tone="orange">{"005 // This Week"}</SystemLabel>
-                <div className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text mt-1">
-                  Active Transmissions
-                </div>
+              <div className="font-hero text-base font-bold uppercase tracking-tighter text-portal-text">
+                This week
               </div>
-              <SystemLabel dot tone="green">Live Feed</SystemLabel>
+              <SystemLabel tone="green" dot>Live</SystemLabel>
             </PanelHeader>
             <PanelBody>
               {postsThisWeek.length === 0 ? (
-                <div className="rounded-md border-2 border-dashed border-portal-border-soft p-10 text-center">
-                  <SystemLabel className="mb-3 block">Signal Feed Empty</SystemLabel>
+                <div className="rounded-md border border-dashed border-portal-border-soft p-10 text-center">
                   <p className="text-sm text-portal-text-muted">No posts have been transmitted this week yet.</p>
                   {canAuthor(profile.role) && (
                     <Button asChild className="mt-4">
@@ -209,26 +193,27 @@ export default async function DashboardPage() {
           {isManager(profile.role) && (
             <Panel>
               <PanelHeader>
-                <div>
-                  <SystemLabel tone="orange">{"006 // Completion"}</SystemLabel>
-                  <div className="font-hero text-lg font-bold uppercase tracking-tighter text-portal-text mt-1">
-                    <AlertCircle className="inline h-4 w-4 mr-2 text-portal-yellow" />
-                    Weekly Score
-                  </div>
+                <div className="font-hero text-base font-bold uppercase tracking-tighter text-portal-text">
+                  Completion
                 </div>
               </PanelHeader>
               <PanelBody className="space-y-3">
-                <div className="font-hero text-5xl font-bold tracking-tighter text-portal-text">{completion}%</div>
-                <SystemLabel>
+                <div className="font-hero text-4xl font-bold tracking-tighter text-portal-text">
+                  {completion}%
+                </div>
+                <div className="text-[11px] uppercase tracking-wider text-portal-text-muted">
                   {Object.keys(postsByAuthor).length} of {team.length} posted
-                </SystemLabel>
-                <div className="h-2 w-full overflow-hidden rounded-pill border border-portal-border-soft bg-portal-panel-soft">
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-pill bg-portal-panel-soft">
                   <div
                     className="h-full bg-portal-orange transition-[width] duration-700"
                     style={{ width: `${completion}%` }}
                   />
                 </div>
-                <Link href="/admin/analytics" className="font-ui text-[10px] uppercase tracking-label text-portal-blue hover:underline">
+                <Link
+                  href="/admin/analytics"
+                  className="inline-block text-[11px] uppercase tracking-wider text-portal-blue hover:underline"
+                >
                   View analytics →
                 </Link>
               </PanelBody>
@@ -253,9 +238,9 @@ function StatBox({
 }) {
   const inner = (
     <>
-      <SystemLabel>{label}</SystemLabel>
+      <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">{label}</div>
       <div className="mt-2">
-        {badge ? badge : <div className="font-hero text-base font-bold uppercase text-portal-text">{value}</div>}
+        {badge ? badge : <div className="font-ui text-sm font-bold text-portal-text">{value}</div>}
       </div>
     </>
   );
@@ -263,11 +248,11 @@ function StatBox({
     return (
       <Link
         href={href}
-        className="block rounded-md border-2 border-portal-border-soft bg-portal-panel-soft p-4 hover:border-portal-border-muted hover:bg-portal-panel-raised"
+        className="block rounded-md border border-portal-border-soft bg-portal-panel-soft p-3 transition-colors hover:border-portal-border-muted hover:bg-portal-panel-raised"
       >
         {inner}
       </Link>
     );
   }
-  return <div className="rounded-md border-2 border-portal-border-soft bg-portal-panel-soft p-4">{inner}</div>;
+  return <div className="rounded-md border border-portal-border-soft bg-portal-panel-soft p-3">{inner}</div>;
 }
