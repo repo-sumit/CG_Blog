@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -53,6 +53,7 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [words, setWords] = useState(() => wordCount((initialPost?.excerpt ?? "") + " "));
 
   const editor = useEditor({
     extensions: editorExtensions(),
@@ -61,11 +62,15 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
     immediatelyRender: false,
   });
 
-  // Mark unsaved on any edit.
+  // Mark unsaved on any edit and refresh the word counter.
   useEffect(() => {
     if (!editor) return;
-    const onUpdate = () => setSaveState((s) => (s === "saving" ? s : "unsaved"));
+    const onUpdate = () => {
+      setSaveState((s) => (s === "saving" ? s : "unsaved"));
+      setWords(wordCount(editor.getText()));
+    };
     editor.on("update", onUpdate);
+    setWords(wordCount(editor.getText()));
     return () => {
       editor.off("update", onUpdate);
     };
@@ -229,8 +234,6 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
     }
   };
 
-  const text = useMemo(() => (editor ? editor.getText() : ""), [editor, saveState]);
-  const words = wordCount(text);
   const readMin = Math.max(1, Math.round(words / 220));
 
   return (
