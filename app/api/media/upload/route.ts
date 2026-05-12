@@ -49,18 +49,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: upErr.message }, { status: 500 });
   }
 
-  // Record asset.
-  await supabase.from("media_assets").insert({
-    owner_id: user.id,
-    post_id: postId,
-    storage_bucket: BUCKET,
-    storage_path: path,
-    source_type: "upload",
-    media_type: v.mediaType,
-    mime_type: file.type,
-    size_bytes: file.size,
-    title: file.name,
-  });
+  // Record asset and return its id so the client can wire it up as e.g. a
+  // post cover image without a second round-trip.
+  const { data: asset } = await supabase
+    .from("media_assets")
+    .insert({
+      owner_id: user.id,
+      post_id: postId,
+      storage_bucket: BUCKET,
+      storage_path: path,
+      source_type: "upload",
+      media_type: v.mediaType,
+      mime_type: file.type,
+      size_bytes: file.size,
+      title: file.name,
+    })
+    .select("id")
+    .maybeSingle();
 
   // Return a STABLE internal URL. /api/media/file re-signs the storage path
   // on every request, so embedded media keeps playing forever (no 7-day TTL).
@@ -70,5 +75,6 @@ export async function POST(request: NextRequest) {
     path,
     signedUrl: stableUrl,
     mediaType: v.mediaType,
+    mediaId: (asset as { id?: string } | null)?.id ?? null,
   });
 }

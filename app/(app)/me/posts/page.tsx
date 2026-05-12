@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Panel, PanelBody, PanelHeader } from "@/components/portal/Panel";
 import { PostRowActions } from "@/components/blog/PostRowActions";
-import { formatPostDate } from "@/lib/utils/dates";
+import { formatPostDate, formatScheduledLabel } from "@/lib/utils/dates";
 import { isManager } from "@/lib/auth/roles";
 
 export const metadata: Metadata = { title: "My posts" };
@@ -91,6 +91,9 @@ export default async function MyPostsPage() {
                           </Link>
                           <div className="mt-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
                             Week of {formatPostDate(p.week_start_date)} · updated {formatPostDate(p.updated_at)}
+                            {p.status === "scheduled" && p.scheduled_for && (
+                              <> · goes live {formatScheduledLabel(p.scheduled_for)}</>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
