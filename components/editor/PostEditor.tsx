@@ -122,11 +122,19 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
   }, [editor]);
 
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Monotonically increasing token. Every save acquires the next value; only
+  // the response whose token is still current is allowed to reconcile React
+  // state. This prevents a stale autosave from clobbering a Post Now that
+  // started later (and prevents the reverse on slow networks).
+  const saveVersionRef = useRef(0);
+  // Set to true while a manual save (draft/now/schedule) is in flight so the
+  // autosave effect skips firing.
+  const manualSaveInFlight = useRef(false);
 
   const handleSave = useCallback(
     async (
       overrideStatus?: PostStatus,
-      opts: { scheduledFor?: string | null } = {},
+      opts: { scheduledFor?: string | null; source?: "manual" | "autosave" } = {},
     ) => {
       if (!editor) return null;
       // Title is required for anything beyond a draft. Drafts may save with an
@@ -138,6 +146,17 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
         toast.error("Please add a title before saving.");
         return null;
       }
+      // Cancel any pending autosave timer so it doesn't fire underneath us.
+      if (autosaveTimer.current) {
+        clearTimeout(autosaveTimer.current);
+        autosaveTimer.current = null;
+      }
+      // Acquire the version token for this attempt; any older save responses
+      // that resolve after us will be ignored on the response path.
+      const versionAtStart = ++saveVersionRef.current;
+      const isManual = (opts.source ?? "manual") === "manual";
+      if (isManual) manualSaveInFlight.current = true;
+
       dirtyDuringSave.current = false;
       setSaveState("saving");
       const json = editor.getJSON();
@@ -153,6 +172,16 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
         cover_media_id: coverMediaId,
         tag_ids: selectedTagIds,
       });
+
+      // If a newer save was started while we were awaiting (e.g. the user
+      // hit Post Now mid-autosave), let that newer save own the state — don't
+      // overwrite with our (now stale) result.
+      const isLatest = versionAtStart === saveVersionRef.current;
+      if (isManual) manualSaveInFlight.current = false;
+      if (!isLatest) {
+        return res;
+      }
+
       if (!res.ok) {
         setSaveState("error");
         toast.error(res.error || "Save failed.");
@@ -173,12 +202,15 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
     [editor, title, excerpt, postId, status, scheduledFor, coverMediaId, selectedTagIds, isNew],
   );
 
-  // Autosave loop (debounced via timeout).
+  // Autosave loop (debounced via timeout). Skips when a manual save is in
+  // flight so we don't queue a second request that could race the first.
   useEffect(() => {
     if (saveState !== "unsaved") return;
+    if (manualSaveInFlight.current) return;
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     autosaveTimer.current = setTimeout(() => {
-      void handleSave();
+      if (manualSaveInFlight.current) return;
+      void handleSave(undefined, { source: "autosave" });
     }, AUTOSAVE_MS);
     return () => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);

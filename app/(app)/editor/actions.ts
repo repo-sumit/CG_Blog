@@ -56,7 +56,29 @@ async function ensureUniqueSlug(base: string, currentId?: string): Promise<strin
   return withSuffix(base, Date.now().toString(36));
 }
 
+/**
+ * Lightweight timing logger gated by SAVE_POST_TIMING_LOG=1. Off by default so
+ * production function logs don't fill with timing chatter. Flip the env in
+ * Vercel to debug a regression — output is one line per save, no PII.
+ */
+function timed(label: string, startedAt: number): number {
+  const elapsed = Math.round(performance.now() - startedAt);
+  if (process.env.SAVE_POST_TIMING_LOG === "1") {
+    console.log(`[savePost.timing] ${label}=${elapsed}ms`);
+  }
+  return elapsed;
+}
+
+function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const aSorted = [...a].sort();
+  const bSorted = [...b].sort();
+  for (let i = 0; i < aSorted.length; i++) if (aSorted[i] !== bSorted[i]) return false;
+  return true;
+}
+
 export async function savePost(input: SavePostInput): Promise<SavePostResult> {
+  const totalStart = performance.now();
   const parsed = SavePostSchema.safeParse(input);
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -65,12 +87,6 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
     }
     return { ok: false, error: "Invalid input.", fieldErrors };
   }
-
-  const { userId, profile } = await requireSession();
-  if (profile.role !== "author" && profile.role !== "manager") {
-    return { ok: false, error: "You don't have permission to author posts." };
-  }
-
   const data = parsed.data;
   const supabase = createSupabaseServerClient();
   const html = sanitizeHtml(data.content_html ?? "");
@@ -85,6 +101,56 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
       error: "Title is required before publishing.",
       fieldErrors: { title: "Title is required." },
     };
+  }
+
+  // PARALLELIZE three reads: session+profile, the existing post row (when
+  // editing), and the post's current tag set (so we can skip the re-sync when
+  // unchanged). Before this change these ran serially after each other, which
+  // cost 1 round-trip per read against Supabase (~100–200ms each).
+  const readStart = performance.now();
+
+  // Supabase's query builders return `PromiseLike`, not native `Promise`. We
+  // wrap each one with `Promise.resolve(...)` so `Promise.all` can accept
+  // them alongside `requireSession()` (a real `Promise`). The shape of each
+  // resolved value is whatever the builder returns from `.then(...)`.
+  const existingPromise = data.id
+    ? Promise.resolve(
+        supabase
+          .from("posts")
+          .select("id, slug, author_id, status, title")
+          .eq("id", data.id)
+          .maybeSingle(),
+      ).then((res) => ({
+        data: res.data as { id: string; slug: string; author_id: string; status: string; title: string } | null,
+      }))
+    : Promise.resolve({ data: null as { id: string; slug: string; author_id: string; status: string; title: string } | null });
+
+  const tagsPromise = data.id && data.tag_ids
+    ? Promise.resolve(
+        supabase.from("post_tags").select("tag_id").eq("post_id", data.id),
+      ).then((res) => ({ data: (res.data ?? []) as { tag_id: string }[] }))
+    : Promise.resolve({ data: [] as { tag_id: string }[] });
+
+  const coverPromise = data.cover_media_id
+    ? Promise.resolve(
+        supabase
+          .from("media_assets")
+          .select("owner_id, media_type")
+          .eq("id", data.cover_media_id)
+          .maybeSingle(),
+      ).then((res) => ({ data: res.data as { owner_id: string; media_type: string } | null }))
+    : Promise.resolve({ data: null as { owner_id: string; media_type: string } | null });
+
+  const [{ userId, profile }, existingRes, tagsRes, coverRes] = await Promise.all([
+    requireSession(),
+    existingPromise,
+    tagsPromise,
+    coverPromise,
+  ]);
+  timed("auth+fetch", readStart);
+
+  if (profile.role !== "author" && profile.role !== "manager") {
+    return { ok: false, error: "You don't have permission to author posts." };
   }
 
   // Determine desired status. The new publish flow has three explicit verbs —
@@ -119,17 +185,11 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
     scheduledFor = new Date(slot).toISOString();
   }
 
-  // Storage path verification for cover image: the supplied media_assets row
-  // must belong to this user (or this post, if it already exists) so an author
-  // can't point cover_media_id at someone else's asset.
+  // Cover ownership check — the supplied media_assets row must belong to this
+  // user; otherwise we silently null it (safer than rejecting the whole save).
   let coverMediaId: string | null | undefined = data.cover_media_id;
   if (coverMediaId) {
-    const { data: cover } = await supabase
-      .from("media_assets")
-      .select("id, owner_id, post_id, media_type")
-      .eq("id", coverMediaId)
-      .maybeSingle();
-    const c = cover as { owner_id?: string; media_type?: string } | null;
+    const c = coverRes.data;
     if (!c || c.owner_id !== userId || c.media_type !== "image") {
       coverMediaId = null;
     }
@@ -139,22 +199,16 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
   let slug: string;
 
   if (postId) {
-    // Update path. Verify author ownership / manager.
-    const { data: existing, error: fetchErr } = await supabase
-      .from("posts")
-      .select("id, slug, author_id, status, title")
-      .eq("id", postId)
-      .maybeSingle();
-    if (fetchErr || !existing) return { ok: false, error: "Post not found." };
+    // Update path. We already have the existing row from the parallel fetch.
+    const existing = existingRes.data;
+    if (!existing) return { ok: false, error: "Post not found." };
     if (existing.author_id !== userId && profile.role !== "manager") {
       return { ok: false, error: "You cannot edit this post." };
     }
 
     // If the title changed, regenerate a unique slug — otherwise keep stable.
-    // Existing.title may be empty if the row was previously saved as a blank
-    // draft, so re-slug whenever the trimmed value differs (including blank → set).
-    slug = existing.slug as string;
-    const existingTitle = ((existing.title as string) ?? "").trim();
+    slug = existing.slug;
+    const existingTitle = (existing.title ?? "").trim();
     if (existingTitle !== trimmedTitle && trimmedTitle.length > 0) {
       slug = await ensureUniqueSlug(slugify(trimmedTitle), postId);
     }
@@ -185,16 +239,28 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
     }
     if (desiredStatus === "archived") update.archived_at = new Date().toISOString();
 
+    const updateStart = performance.now();
     const { error: updErr } = await supabase.from("posts").update(update).eq("id", postId);
+    timed("update", updateStart);
     if (updErr) return { ok: false, error: updErr.message };
 
-    // Re-sync tags.
+    // Tag re-sync — but ONLY when the incoming set actually differs from
+    // what's already attached. Skipping this in the unchanged case saves two
+    // writes per save (delete + insert), which used to fire on every autosave.
     if (data.tag_ids) {
-      await supabase.from("post_tags").delete().eq("post_id", postId);
-      if (data.tag_ids.length > 0) {
-        await supabase
-          .from("post_tags")
-          .insert(data.tag_ids.map((tag_id) => ({ post_id: postId, tag_id })));
+      const tagStart = performance.now();
+      const currentTagIds = tagsRes.data.map((r) => r.tag_id);
+      const incomingTagIds = data.tag_ids;
+      if (!arraysEqual(currentTagIds, incomingTagIds)) {
+        await supabase.from("post_tags").delete().eq("post_id", postId);
+        if (incomingTagIds.length > 0) {
+          await supabase
+            .from("post_tags")
+            .insert(incomingTagIds.map((tag_id) => ({ post_id: postId, tag_id })));
+        }
+        timed("tags", tagStart);
+      } else {
+        timed("tags_skipped", tagStart);
       }
     }
   } else {
@@ -247,10 +313,22 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
     });
   }
 
-  revalidatePath("/");
-  revalidatePath(`/posts/${slug}`);
+  // Conditional revalidation — drafts aren't public, so revalidating `/` or
+  // `/posts/<slug>` on a draft save thrashes the cache for no benefit. We
+  // only invalidate the surfaces a status actually affects.
+  const revalStart = performance.now();
+  if (desiredStatus === "published") {
+    // Post just became public on Post Now.
+    revalidatePath("/");
+    revalidatePath(`/posts/${slug}`);
+  }
+  // Authored-side surfaces always reflect the new status / updated_at.
   revalidatePath("/me/posts");
-  revalidatePath("/dashboard");
+  if (desiredStatus === "published" || desiredStatus === "scheduled" || desiredStatus === "submitted") {
+    revalidatePath("/dashboard");
+  }
+  timed("revalidate", revalStart);
+  timed("total", totalStart);
 
   return {
     ok: true,
