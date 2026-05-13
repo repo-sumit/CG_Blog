@@ -10,7 +10,35 @@ interface NewsletterResult {
   attempted?: number;
   sent?: number;
   failed?: number;
+  failures?: { email: string; error: string }[];
+  /** Set when we detected Resend's sandbox-only delivery mode. */
+  sandboxDetected?: boolean;
+  /** Set when Resend returned a 429 / rate-limit error on any recipient. */
+  rateLimitDetected?: boolean;
   error?: string;
+}
+
+/** True for any sandbox `from` address — Resend's onboarding domain + any
+ *  `name <something@resend.dev>` formatted sender. */
+export function isSandboxSender(from: string | undefined | null): boolean {
+  if (!from) return false;
+  return /@resend\.dev>?\s*$/i.test(from.trim());
+}
+
+type ResendErrorCategory = "sandbox" | "rate_limit" | "domain_unverified" | "other";
+
+/** Classify a Resend API error string so callers can show actionable copy. */
+function categoriseResendError(err: string | undefined | null): ResendErrorCategory {
+  if (!err) return "other";
+  const lower = err.toLowerCase();
+  // The exact sandbox guard message Resend emits.
+  if (lower.includes("you can only send testing emails to your own email")) return "sandbox";
+  if (lower.includes("verify a domain")) return "domain_unverified";
+  // Rate-limit shapes: HTTP 429, or text containing "rate limit"/"too many".
+  if (lower.includes("429") || lower.includes("rate limit") || lower.includes("too many requests")) {
+    return "rate_limit";
+  }
+  return "other";
 }
 
 /**
@@ -60,9 +88,21 @@ function extractFirstParagraph(html: string, maxChars = 320): string | null {
  * docs/newsletter-delivery-debug.md for the fix.
  */
 export async function sendPerPostNewsletter(postId: string): Promise<NewsletterResult> {
-  if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM) {
+  const from = process.env.RESEND_FROM;
+  if (!process.env.RESEND_API_KEY || !from) {
     // No-op when Resend isn't configured. The publish flow keeps working.
     return { ok: true, skipped: "not_configured" };
+  }
+
+  // Early, prominent warning when the `from` address is Resend's sandbox
+  // sender. In that mode Resend will silently reject every recipient that
+  // isn't the account owner, so the dispatch *looks* successful while only
+  // one person actually gets the email. We still try to send (the owner
+  // does want their copy) but log the warning so ops can see what's wrong.
+  if (isSandboxSender(from)) {
+    console.warn(
+      `[newsletter:${postId}] Resend is using sandbox sender (${from}). Only the Resend account owner may receive emails. Verify a domain and set RESEND_FROM. See docs/resend-newsletter-delivery.md.`,
+    );
   }
 
   const service = createSupabaseServiceClient();
@@ -144,6 +184,8 @@ export async function sendPerPostNewsletter(postId: string): Promise<NewsletterR
 
   let sent = 0;
   const failures: { email: string; error: string }[] = [];
+  let sandboxDetected = false;
+  let rateLimitDetected = false;
 
   for (const sub of subscribers) {
     const unsubscribeUrl = `${publicEnv.appUrl}/api/subscribe/unsubscribe?t=${sub.unsubscribe_token}`;
@@ -174,16 +216,92 @@ export async function sendPerPostNewsletter(postId: string): Promise<NewsletterR
     });
     if (res.ok) {
       sent++;
+      console.log(`[newsletter:${postId}] sent · email=${sub.email}`);
     } else {
-      failures.push({ email: sub.email, error: res.error ?? "unknown" });
+      const errMsg = res.error ?? "unknown";
+      console.error(`[newsletter:${postId}] failed · email=${sub.email} · error=${errMsg}`);
+      const category = categoriseResendError(errMsg);
+      // Surface actionable hints alongside the raw error. Log once per
+      // category — we don't need to spam the same hint for every failed
+      // recipient when the cause is global (e.g. sandbox mode).
+      if (category === "sandbox" && !sandboxDetected) {
+        sandboxDetected = true;
+        console.error(
+          `[newsletter:${postId}] Resend test mode detected. Verify a domain and update RESEND_FROM. See docs/resend-newsletter-delivery.md.`,
+        );
+      } else if (category === "rate_limit" && !rateLimitDetected) {
+        rateLimitDetected = true;
+        console.error(
+          `[newsletter:${postId}] Resend free-tier rate/usage limit reached (100/day, 3000/month).`,
+        );
+      } else if (category === "domain_unverified") {
+        console.error(
+          `[newsletter:${postId}] Resend domain not verified yet. Check the Domains tab in your Resend dashboard.`,
+        );
+      }
+      failures.push({ email: sub.email, error: errMsg });
     }
   }
 
-  if (failures.length > 0) {
-    console.error(`[newsletter:${postId}] ${failures.length} failures`, failures);
-  }
   console.log(
     `[newsletter:${postId}] done · attempted=${subscribers.length} sent=${sent} failed=${failures.length}`,
   );
-  return { ok: true, attempted: subscribers.length, sent, failed: failures.length };
+  return {
+    ok: true,
+    attempted: subscribers.length,
+    sent,
+    failed: failures.length,
+    failures: failures.length > 0 ? failures : undefined,
+    sandboxDetected: sandboxDetected || undefined,
+    rateLimitDetected: rateLimitDetected || undefined,
+  };
+}
+
+// ============================================================
+// Diagnostics — server-only helper that returns delivery-pipeline health.
+// Used by /api/admin/newsletter-diagnostics so managers can verify Resend
+// is set up correctly without grepping Vercel logs. Returns COUNTS ONLY —
+// never subscriber emails.
+// ============================================================
+
+export interface NewsletterDiagnostics {
+  resendConfigured: boolean;
+  resendFromDomain: string | null;
+  isSandboxSender: boolean;
+  totalSubscribers: number;
+  activeSubscribers: number;
+  unsubscribedSubscribers: number;
+  appUrl: string;
+  publicAppUrlIsLocalhost: boolean;
+}
+
+export async function getNewsletterDiagnostics(): Promise<NewsletterDiagnostics> {
+  const from = process.env.RESEND_FROM ?? null;
+  // Pull just the email domain out of either "name@domain" or "Name <name@domain>".
+  const domainMatch = from?.match(/@([A-Za-z0-9.\-]+)/);
+  const resendFromDomain = domainMatch?.[1]?.toLowerCase() ?? null;
+
+  const service = createSupabaseServiceClient();
+  const [total, active, unsubscribed] = await Promise.all([
+    service.from("subscribers").select("id", { count: "exact", head: true }),
+    service
+      .from("subscribers")
+      .select("id", { count: "exact", head: true })
+      .is("unsubscribed_at", null),
+    service
+      .from("subscribers")
+      .select("id", { count: "exact", head: true })
+      .not("unsubscribed_at", "is", null),
+  ]);
+
+  return {
+    resendConfigured: Boolean(process.env.RESEND_API_KEY && from),
+    resendFromDomain,
+    isSandboxSender: isSandboxSender(from),
+    totalSubscribers: total.count ?? 0,
+    activeSubscribers: active.count ?? 0,
+    unsubscribedSubscribers: unsubscribed.count ?? 0,
+    appUrl: publicEnv.appUrl,
+    publicAppUrlIsLocalhost: /^https?:\/\/localhost/i.test(publicEnv.appUrl),
+  };
 }
