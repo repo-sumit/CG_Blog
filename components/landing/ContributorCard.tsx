@@ -19,31 +19,42 @@ export function ContributorCard({ stat }: { stat: ContributorStats }) {
   const topics = stat.topics.length > 0 ? stat.topics : meta?.topics ?? [];
 
   return (
-    <article className="group flex h-full flex-col rounded-md border border-portal-border-soft bg-portal-panel p-5 transition-colors hover:border-portal-border-muted">
-      <header className="flex items-start gap-3">
+    <article className="group flex h-full w-full max-w-full min-w-0 flex-col overflow-hidden rounded-lg border border-portal-border-soft bg-portal-panel p-5 transition-colors hover:border-portal-border-muted">
+      {/* Header — grid with `minmax(0,1fr)` on the name column so long names
+          truncate cleanly instead of forcing the card wider than its cell. */}
+      <header
+        className="grid items-start gap-3"
+        style={{ gridTemplateColumns: "auto minmax(0, 1fr) auto" }}
+      >
         <Avatar
           src={stat.profile.avatar_url}
           name={displayName}
           email={stat.profile.email}
           size="lg"
         />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           <div className="truncate font-ui text-sm font-bold text-portal-text">{displayName}</div>
           {meta && (
             <>
               <div className="mt-0.5 truncate text-xs text-portal-text-muted">{meta.designation}</div>
-              <div className="text-[10px] uppercase tracking-wider text-portal-text-soft">{meta.pod}</div>
+              <div className="truncate text-[10px] uppercase tracking-wider text-portal-text-soft">
+                {meta.pod}
+              </div>
             </>
           )}
         </div>
-        <Badge variant="outline">{roleLabel(stat.profile.role)}</Badge>
+        <Badge variant="outline" className="shrink-0">
+          {roleLabel(stat.profile.role)}
+        </Badge>
       </header>
 
       {/* Topics */}
       {topics.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-1.5">
           {topics.map((t) => (
-            <Badge key={t} variant="secondary">{t}</Badge>
+            <Badge key={t} variant="secondary" className="max-w-full">
+              {t}
+            </Badge>
           ))}
         </div>
       )}

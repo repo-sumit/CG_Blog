@@ -1,23 +1,23 @@
-import { THEME_STORAGE_KEY } from "@/lib/theme/theme-config";
+import { DEFAULT_THEME_MODE, THEME_STORAGE_KEY } from "@/lib/theme/theme-config";
 
 /**
  * Inline blocking script that runs BEFORE React hydrates. Reads the persisted
- * mode from localStorage (or falls back to `prefers-color-scheme`) and stamps
- * `data-theme="dark" | "light"` on `<html>`. Because it runs before the first
- * paint, there's no visible flash of the wrong theme.
+ * mode from localStorage and stamps `data-theme="light" | "dark"` on `<html>`
+ * before any paint. The previous version honoured `prefers-color-scheme`;
+ * that's gone with the system-theme removal — light is now the explicit
+ * default for first-time visitors.
  *
- * Mount this as the very first child of `<body>` in the root layout — Next
- * keeps the markup verbatim with `dangerouslySetInnerHTML`, so the code below
- * is exactly what ships to the browser. It deliberately avoids any external
- * dependency or build-time templating beyond the storage key constant.
- *
- * The script is intentionally compact (no comments inside the string body) —
- * Next will inline it into the document head and we don't want extra bytes.
+ * Mount as the first child of `<body>` in the root layout — Next will
+ * inline this verbatim into the document so it runs before any CSS applies.
  */
 export function ThemeScript() {
   const code = `(function(){try{var k=${JSON.stringify(
     THEME_STORAGE_KEY,
-  )};var m=null;try{m=window.localStorage.getItem(k)}catch(_){};var t;if(m==="dark"||m==="light"){t=m}else{t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"};document.documentElement.setAttribute("data-theme",t)}catch(e){document.documentElement.setAttribute("data-theme","dark")}})();`;
+  )};var d=${JSON.stringify(
+    DEFAULT_THEME_MODE,
+  )};var m=null;try{m=window.localStorage.getItem(k)}catch(_){};var t=(m==="dark"||m==="light")?m:d;document.documentElement.setAttribute("data-theme",t)}catch(e){document.documentElement.setAttribute("data-theme",${JSON.stringify(
+    DEFAULT_THEME_MODE,
+  )})}})();`;
   return (
     <script
       // eslint-disable-next-line react/no-danger -- intentional inline preboot script

@@ -3,19 +3,24 @@
  * and the toggle UI. Keeping these constants in a tiny module lets every
  * caller agree on the localStorage key + the set of valid modes without
  * importing React.
+ *
+ * As of the May 2026 mobile/UX pass we removed the `system` mode — the app
+ * now ships in light mode by default with an explicit dark toggle. A small
+ * back-compat path in the provider rewrites any legacy `"system"` value in
+ * storage to the new default so existing visitors don't see a broken state.
  */
 
-/** What the user actually picked. `system` defers to OS preference. */
-export type ThemeMode = "dark" | "light" | "system";
+/** What the user picked. Only the two explicit modes are supported. */
+export type ThemeMode = "light" | "dark";
 
-/** What we actually paint — `system` resolves to one of these. */
-export type ResolvedTheme = "dark" | "light";
+/** What's actually painted. Identical to `ThemeMode` now that system is gone. */
+export type ResolvedTheme = "light" | "dark";
 
-/** The set of legal mode strings, used for runtime validation. */
-export const THEME_MODES: readonly ThemeMode[] = ["dark", "light", "system"] as const;
+/** Legal modes — used for runtime validation against persisted strings. */
+export const THEME_MODES: readonly ThemeMode[] = ["light", "dark"] as const;
 
-/** localStorage key for persisting the user's choice. */
+/** localStorage key for the user's persisted choice. */
 export const THEME_STORAGE_KEY = "cg_signal_theme";
 
-/** Default when nothing is stored yet — match OS so first-load looks native. */
-export const DEFAULT_THEME_MODE: ThemeMode = "system";
+/** Default mode applied when nothing is stored yet. */
+export const DEFAULT_THEME_MODE: ThemeMode = "light";

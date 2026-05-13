@@ -177,10 +177,21 @@
   }
 
   html {
-    /* Hard-cap viewport width — prevents content with stray fixed widths from
-       creating a horizontal scroll on mobile. Editor layouts still own their
-       internal `min-w-0`/`overflow-hidden` guards to keep grids reflowing. */
-    overflow-x: hidden;
+    /* Viewport-width clamp. `overflow-x: clip` is preferred over `hidden`
+       because it doesn't create a new scroll container — sticky positioning
+       (the top nav) keeps working naturally. Editor + landing layouts own
+       their own `min-w-0` guards to keep grids reflowing; this is the
+       belt-and-suspenders backstop. */
+    max-width: 100%;
+    overflow-x: clip;
+  }
+  /* Universal box-sizing — Tailwind sets this in its preflight but we re-state
+     it here so the rule survives any preflight-disabling Tailwind config a
+     future fork might apply. */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
   }
 
   * {
@@ -194,9 +205,10 @@
     font-feature-settings: "ss01", "ss02";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    /* Same hard-cap as <html> — belt + suspenders for browsers that ignore the
-       html-level rule. */
-    overflow-x: hidden;
+    /* Mirror the html clamp; some browsers (older Safari) honour body-level
+       overflow while ignoring html-level. */
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   ::selection {

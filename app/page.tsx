@@ -127,7 +127,11 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
         <section className="container mx-auto px-4" id="feed">
           <div className="rounded-md border border-portal-border-soft bg-portal-panel-soft p-4">
             <form className="flex flex-wrap items-center gap-3" action="/" method="get">
-              <div className="relative min-w-[240px] flex-1">
+              {/* min-w-0 here is critical — without it the flex parent can't
+                  shrink below the input's intrinsic width, which on narrow
+                  phones (~360px) was pushing the whole page wider than the
+                  viewport and clipping every section's right edge. */}
+              <div className="relative min-w-0 flex-1 basis-full sm:basis-auto">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-portal-text-muted" />
                 <Input
                   name="q"
@@ -217,10 +221,7 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
         </div>
 
         {/* ============ Subscribe ============ */}
-        {/* ConveGenius Weekly Signals — temporarily hidden. Re-enable by uncommenting
-            <SubscribeSection /> below. The /api/subscribe endpoint and welcome email
-            still work; only the landing-page entry point is suppressed. */}
-        {/* <SubscribeSection /> */}
+        <SubscribeSection />
       </main>
 
       <PortalFooter />

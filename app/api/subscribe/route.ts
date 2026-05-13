@@ -52,15 +52,32 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   let row: { id: string; unsubscribe_token: string } | null = null;
+  type Status = "subscribed" | "already_subscribed" | "reactivated";
+  let status: Status = "subscribed";
 
   if (existing) {
-    const { data: updated } = await service
-      .from("subscribers")
-      .update({ unsubscribed_at: null })
-      .eq("id", (existing as { id: string }).id)
-      .select("id, unsubscribe_token")
-      .single();
-    row = updated as unknown as { id: string; unsubscribe_token: string };
+    const e = existing as { id: string; unsubscribed_at: string | null };
+    if (e.unsubscribed_at === null) {
+      // Active subscriber re-submitting their email — return a friendly
+      // "already subscribed" without re-sending the welcome.
+      const { data: same } = await service
+        .from("subscribers")
+        .select("id, unsubscribe_token")
+        .eq("id", e.id)
+        .single();
+      row = same as unknown as { id: string; unsubscribe_token: string } | null;
+      status = "already_subscribed";
+    } else {
+      // Previously unsubscribed — reactivate and (re-)send a welcome.
+      const { data: updated } = await service
+        .from("subscribers")
+        .update({ unsubscribed_at: null })
+        .eq("id", e.id)
+        .select("id, unsubscribe_token")
+        .single();
+      row = updated as unknown as { id: string; unsubscribe_token: string };
+      status = "reactivated";
+    }
   } else {
     const { data: inserted, error } = await service
       .from("subscribers")
@@ -69,12 +86,20 @@ export async function POST(request: NextRequest) {
       .single();
     if (error) {
       console.error("[/api/subscribe] insert failed", error);
-      return NextResponse.json({ ok: true }, { status: 200 }); // soft-fail
+      // Soft-fail: don't leak DB errors to the form, but tell the client
+      // the request was accepted so they aren't stuck on "retry".
+      return NextResponse.json(
+        { ok: true, status: "subscribed" satisfies Status },
+        { status: 200 },
+      );
     }
     row = inserted as unknown as { id: string; unsubscribe_token: string };
+    status = "subscribed";
   }
 
-  if (row) {
+  // Welcome email only when we genuinely added a new (or reactivated) row —
+  // re-submissions of an already-active email don't re-send.
+  if (row && status !== "already_subscribed") {
     const unsubscribeUrl = `${publicEnv.appUrl}/api/subscribe/unsubscribe?t=${row.unsubscribe_token}`;
     const tpl = welcomeTemplate({ appUrl: publicEnv.appUrl, unsubscribeUrl });
     // List-Unsubscribe headers per RFC 8058 — Gmail/Yahoo/Outlook now require
@@ -90,5 +115,5 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, status });
 }

@@ -1,50 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sun, Moon, Monitor } from "lucide-react";
+import { Sun, Moon } from "lucide-react";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { cn } from "@/lib/utils/cn";
-import type { ThemeMode } from "@/lib/theme/theme-config";
 
 interface Props {
-  /** Compact layout: shows only the active mode's icon as an icon button. */
+  /** Compact: shows a single icon-button that flips on click. */
   compact?: boolean;
   className?: string;
 }
 
-const OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "system", label: "System", icon: Monitor },
-  { value: "dark", label: "Dark", icon: Moon },
-];
-
 /**
- * Segmented theme picker. Three icon buttons (light / system / dark) wrapped
- * in a pill — radio-group semantics so it's keyboard navigable. The pre-
- * hydration script already set the visible theme before React mounted; this
- * component just shows + sets the user's persisted choice.
+ * Two-state theme toggle. The system-preference mode was removed in May 2026
+ * because users were unintentionally landing in the wrong theme on the
+ * landing page — light is now the explicit default and the toggle just
+ * flips between light and dark.
  *
- * In `compact` mode (mobile / narrow navs) we render a single icon button
- * that cycles light → system → dark on click.
+ * Layouts:
+ *   - default: segmented sun / moon pair (radiogroup, keyboard-navigable)
+ *   - compact: a single icon button whose icon mirrors the OPPOSITE mode so
+ *     the affordance reads as "switch to [other theme]" — the convention used
+ *     by GitHub, Stripe, etc.
  */
 export function ThemeToggle({ compact = false, className }: Props) {
-  const { mode, setMode } = useTheme();
-  // Match SSR markup on the first paint (mode = default), then enable the
-  // real state once we've read storage. Without this guard the radio's
-  // `aria-checked` would flicker on the first client tick.
+  const { mode, setMode, toggle } = useTheme();
+
+  // Match SSR markup on first paint, then enable real state once we've read
+  // storage. Prevents an aria-checked / icon flicker on the first client tick.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   if (compact) {
-    const order: ThemeMode[] = ["light", "system", "dark"];
-    const idx = Math.max(0, order.indexOf(mode));
-    const next = order[(idx + 1) % order.length]!;
-    const ActiveIcon = OPTIONS.find((o) => o.value === mode)?.icon ?? Monitor;
+    // Icon shows the destination, not the current state — i.e. clicking a
+    // moon switches TO dark.
+    const isDark = mounted && mode === "dark";
+    const Icon = isDark ? Sun : Moon;
+    const label = isDark ? "Switch to light theme" : "Switch to dark theme";
     return (
       <button
         type="button"
-        aria-label={`Theme: ${mode}. Click to switch.`}
-        onClick={() => setMode(next)}
+        aria-label={label}
+        title={label}
+        onClick={toggle}
         className={cn(
           "inline-flex h-9 w-9 items-center justify-center rounded-pill border border-portal-border-soft bg-portal-panel-soft text-portal-text-muted transition-colors",
           "hover:border-portal-border-muted hover:text-portal-text",
@@ -52,10 +50,16 @@ export function ThemeToggle({ compact = false, className }: Props) {
           className,
         )}
       >
-        <ActiveIcon className="h-4 w-4" aria-hidden />
+        <Icon className="h-4 w-4" aria-hidden />
       </button>
     );
   }
+
+  // Full segmented control: sun (light) | moon (dark).
+  const options: { value: "light" | "dark"; label: string; icon: typeof Sun }[] = [
+    { value: "light", label: "Light", icon: Sun },
+    { value: "dark", label: "Dark", icon: Moon },
+  ];
 
   return (
     <div
@@ -66,7 +70,7 @@ export function ThemeToggle({ compact = false, className }: Props) {
         className,
       )}
     >
-      {OPTIONS.map((opt) => {
+      {options.map((opt) => {
         const Icon = opt.icon;
         const active = mounted && mode === opt.value;
         return (
