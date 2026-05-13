@@ -27,7 +27,7 @@ export function editorExtensions(): Extensions {
     Color,
     Highlight.configure({ multicolor: true }),
     Placeholder.configure({
-      placeholder: "Write your weekly update… (markdown shortcuts supported)",
+      placeholder: "Write your signal… (markdown shortcuts supported)",
     }),
     Image.configure({ HTMLAttributes: { class: "rounded-lg" } }),
   ];

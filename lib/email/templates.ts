@@ -30,20 +30,20 @@ interface BaseTemplateOpts {
 
 export function welcomeTemplate({ appUrl, unsubscribeUrl }: BaseTemplateOpts) {
   return {
-    subject: "Transmission received — CG Signal is live in your inbox",
+    subject: "Signal locked — CG Signal is live in your inbox",
     text: `[CG SIGNAL // SUBSCRIPTION CONFIRMED]
 
 You're locked in.
 
-Every Monday morning we'll beam over a short digest of the week's transmissions from team Dhurandhar — notes, retros, launches, experiments, and the occasional plot twist.
+The moment someone on team Dhurandhar publishes a new signal, you'll get a short notification email with the title, a snippet, and a direct link to read it.
 
 What you'll get:
-  · One email a week (Mondays)
-  · 3–5 hand-picked posts per issue
+  · One email per new signal
+  · Notes, retros, launches, experiments
   · Direct links to read, comment, react
 
 What you won't get:
-  · Daily nags
+  · Daily nags or batch digests
   · Tracking pixels
   · Spam, ever
 
@@ -65,9 +65,9 @@ Unsubscribe anytime: ${unsubscribeUrl}
                 You're locked in.
               </h1>
               <p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#374151;">
-                Every Monday morning we'll beam over a short digest of the week's
-                transmissions from <strong>team Dhurandhar</strong> — notes, retros,
-                launches, experiments, and the occasional plot twist.
+                The moment someone on <strong>team Dhurandhar</strong> publishes a new
+                signal, you'll get a short notification with the title, a snippet, and
+                a direct link to read it — no weekly batching, no waiting.
               </p>
             </td>
           </tr>
@@ -79,14 +79,14 @@ Unsubscribe anytime: ${unsubscribeUrl}
                     <div style="font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:#ff5a1f;margin-bottom:10px;">
                       What you'll get
                     </div>
-                    ${bullet("One email a week · Mondays")}
-                    ${bullet("3–5 hand-picked posts per issue")}
+                    ${bullet("One email per new signal")}
+                    ${bullet("Notes, retros, launches, experiments")}
                     ${bullet("Direct links to read, comment, react")}
                     <div style="height:14px;line-height:14px;font-size:1px;">&nbsp;</div>
                     <div style="font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:#6b7280;margin-bottom:10px;">
                       What you won't get
                     </div>
-                    ${bullet("Daily nags", true)}
+                    ${bullet("Daily nags or batch digests", true)}
                     ${bullet("Tracking pixels", true)}
                     ${bullet("Spam, ever", true)}
                   </td>
@@ -112,7 +112,12 @@ Unsubscribe anytime: ${unsubscribeUrl}
 }
 
 // ============================================================
-// Weekly digest
+// Per-post / daily digest
+// ------------------------------------------------------------
+// `weekLabel` is kept as the prop name for back-compat with existing callers,
+// but the value the caller passes is now expected to be a daily date string
+// like "MAY 13, 2026". Subject lines + body copy say "today's signal" so the
+// email reads as a fresh notification rather than a weekly roll-up.
 // ============================================================
 
 export function digestTemplate({
@@ -125,9 +130,18 @@ export function digestTemplate({
 
   const totalMinutes = posts.reduce((sum, p) => sum + p.readTimeMinutes, 0);
   const authorList = Array.from(new Set(posts.map((p) => p.authorName))).join(", ");
-  const subject = `CG Signal · ${weekLabel} · ${posts.length} transmission${posts.length === 1 ? "" : "s"}`;
+  const isSingle = posts.length === 1;
+  const single = isSingle ? posts[0]! : null;
+  // Subject prefers the post title when only one signal is going out — feels
+  // less like a digest and more like a notification.
+  const subject = single
+    ? `CG Signal · New post from ${single.authorName} · ${single.title}`
+    : `CG Signal · ${posts.length} new signals today`;
+  const heading = isSingle ? "Today's signal." : "Today's signals.";
 
-  const text = `[CG SIGNAL // ${weekLabel}]\n\nThis week: ${posts.length} transmission${posts.length === 1 ? "" : "s"} · ~${totalMinutes} min total\nBy: ${authorList}\n\n${posts
+  const text = `[CG SIGNAL // ${weekLabel}]\n\n${heading} ${posts.length} new ${
+    isSingle ? "post" : "posts"
+  } · ~${totalMinutes} min total\nBy: ${authorList}\n\n${posts
     .map(
       (p, i) =>
         `${String(i + 1).padStart(2, "0")} · ${p.title}\n   ${p.excerpt ?? ""}\n   ${p.authorName} · ${p.readTimeMinutes} min\n   ${appUrl}/posts/${p.slug}\n`,
@@ -177,7 +191,7 @@ export function digestTemplate({
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
           <tr>
             <td style="padding-bottom:18px;border-bottom:1px solid #e5e7eb;">
-              ${tickerStrip([`WEEK · ${weekLabel}`, "SIGNAL FEED ACTIVE", "TRANSMISSION INBOUND"])}
+              ${tickerStrip([`DAY · ${weekLabel}`, "SIGNAL FEED ACTIVE", "TRANSMISSION INBOUND"])}
             </td>
           </tr>
           <tr>
@@ -186,15 +200,15 @@ export function digestTemplate({
                 ${esc(weekLabel)}
               </div>
               <h1 style="margin:6px 0 14px;font-size:30px;line-height:1.05;font-family:Georgia,serif;letter-spacing:-0.02em;">
-                This week's signals.
+                ${esc(heading)}
               </h1>
             </td>
           </tr>
           <tr>
             <td>
               ${readoutStrip([
-                { label: "Posts",        value: String(posts.length) },
-                { label: "Total read",   value: `${totalMinutes} min` },
+                { label: isSingle ? "Signal" : "Signals", value: String(posts.length) },
+                { label: "Total read", value: `${totalMinutes} min` },
                 { label: "Contributors", value: String(new Set(posts.map((p) => p.authorName)).size) },
               ])}
             </td>
@@ -346,7 +360,7 @@ function asciiSignoff(): string {
   return `
     <pre style="margin:0;padding:0;font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:11px;line-height:1.4;color:#9ca3af;white-space:pre;letter-spacing:0;">
 &gt; END OF TRANSMISSION
-&gt; SIGNAL: STABLE · CHANNEL: WEEKLY
+&gt; SIGNAL: STABLE · CHANNEL: LIVE
 &gt; — team dhurandhar
     </pre>`;
 }

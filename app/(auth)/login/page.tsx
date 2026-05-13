@@ -34,7 +34,7 @@ export default async function LoginPage({
                 signal portal.
               </h1>
               <p className="max-w-md text-base leading-relaxed text-portal-text-muted">
-                Weekly transmissions from across ConveGenius. Sign in with your workspace email to
+                Daily transmissions from across ConveGenius. Sign in with your workspace email to
                 read the signal feed and broadcast your own.
               </p>
             </div>

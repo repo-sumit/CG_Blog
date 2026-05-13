@@ -1,9 +1,9 @@
 import "server-only";
+import { format } from "date-fns";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { publicEnv } from "@/lib/env";
 import { sendEmail } from "@/lib/email/resend";
 import { digestTemplate } from "@/lib/email/templates";
-import { formatWeekRange } from "@/lib/utils/dates";
 
 interface NewsletterResult {
   ok: boolean;
@@ -91,7 +91,13 @@ export async function sendPerPostNewsletter(postId: string): Promise<NewsletterR
   const authorHandle = a?.email?.split("@")[0] ?? "ConveGenius team";
   const authorName = a?.full_name?.trim() || authorHandle;
 
-  const weekLabel = formatWeekRange().toUpperCase();
+  // The per-post newsletter is a same-day notification. We hand the digest
+  // template a daily date label (e.g. "MAY 13, 2026") via the `weekLabel`
+  // prop — the prop name is kept for back-compat; the value is now daily.
+  const dayLabel = format(
+    post.published_at ? new Date(post.published_at) : new Date(),
+    "MMM d, yyyy",
+  ).toUpperCase();
   let sent = 0;
   const failures: { email: string; error: string }[] = [];
 
@@ -100,7 +106,7 @@ export async function sendPerPostNewsletter(postId: string): Promise<NewsletterR
     const tpl = digestTemplate({
       appUrl: publicEnv.appUrl,
       unsubscribeUrl,
-      weekLabel,
+      weekLabel: dayLabel,
       posts: [
         {
           title: post.title,

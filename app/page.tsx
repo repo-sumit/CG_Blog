@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "CG Signal — Team Blog Portal",
-  description: "Weekly transmissions from team Dhurandhar!",
+  description: "Daily signals from team Dhurandhar — notes, retros, launches, experiments.",
 };
 
 interface SearchParams {
@@ -95,8 +95,8 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
                   signal feed.
                 </h1>
                 <p className="max-w-xl text-base leading-relaxed text-portal-text-muted">
-                  Weekly transmissions from team Dhurandhar! — notes, retros,
-                  launches, and experiments, written by the people doing the work.
+                  Daily work signals, product notes, design logs, engineering updates, and team
+                  reflections — posted whenever a signal is ready, by the people doing the work.
                 </p>
                 <div className="flex flex-wrap items-center gap-3 pt-2">
                   <Button asChild>
@@ -116,7 +116,7 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
                   <StatReadout label="Total transmissions" value={totalPosts} />
                   <StatReadout label="Contributors" value={totalAuthors} />
                   <StatReadout label="Categories" value={tags.length} />
-                  <StatReadout label="Cadence" valueText="Weekly" sub="Mon–Fri rotation" />
+                  <StatReadout label="Cadence" valueText="Daily" sub="As signals are ready" />
                 </PanelBody>
               </Panel>
             </div>

@@ -5,7 +5,7 @@ import { requireAuthor } from "@/lib/auth/guards";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listTeam } from "@/lib/db/profiles";
 import { listPostsThisWeek, listOwnPosts } from "@/lib/db/posts";
-import { weekStartISO, todayWeekday, weekdayLabel } from "@/lib/utils/dates";
+import { weekStartISO } from "@/lib/utils/dates";
 import { canAuthor, isManager } from "@/lib/auth/roles";
 import { effectiveRole } from "@/lib/auth/viewMode";
 import { Badge } from "@/components/ui/Badge";
@@ -56,11 +56,12 @@ export default async function DashboardPage() {
   const completion =
     team.length > 0 ? Math.round((Object.keys(postsByAuthor).length / team.length) * 100) : 0;
 
-  const myDay = profile.weekly_post_day ?? null;
+  // Latest in-progress draft for the "Your activity" panel. We still scope to
+  // this week so a months-old abandoned draft doesn't dominate the dashboard;
+  // authors who haven't started anything this week see the empty-state CTA.
   const myDraftThisWeek = ownPosts.find(
     (p) => p.week_start_date === wk && (p.status === "draft" || p.status === "submitted"),
   );
-  const today = todayWeekday();
   const firstName = profile.full_name?.split(" ")[0] || profile.email.split("@")[0];
 
   return (
@@ -73,8 +74,8 @@ export default async function DashboardPage() {
           <span className="text-portal-text-muted"> Signal received.</span>
         </h1>
         <p className="max-w-xl text-sm text-portal-text-muted">
-          What the team is broadcasting this week. Pick up your assigned day or jump in early — every
-          post becomes part of the archive.
+          What the team is broadcasting today. Post whenever your signal is ready — every post
+          becomes part of the team archive.
         </p>
         <div className="flex flex-wrap items-center gap-3 pt-1">
           {canAuthor(role) && (
@@ -97,24 +98,25 @@ export default async function DashboardPage() {
             <Panel>
               <PanelHeader>
                 <div className="font-hero text-base font-bold uppercase tracking-tighter text-portal-text">
-                  Your week
+                  Your activity
                 </div>
               </PanelHeader>
               <PanelBody className="grid gap-3 sm:grid-cols-3">
-                <StatBox label="Assigned day" value={myDay ? weekdayLabel(myDay) : "Unassigned"} />
                 <StatBox
-                  label="This week's post"
-                  value={myDraftThisWeek ? "Draft in progress" : "Not started"}
+                  label="Latest signal"
+                  value={myDraftThisWeek ? "Draft in progress" : "Ready to post"}
                   href={myDraftThisWeek ? `/editor/${myDraftThisWeek.id}` : "/editor/new"}
+                />
+                <StatBox
+                  label="Published this week"
+                  value={String(postsByAuthor[userId] ?? 0)}
                 />
                 <StatBox
                   label="Status"
                   badge={
-                    myDay === null ? <Badge variant="muted">No day</Badge> :
-                    (postsByAuthor[userId] ?? 0) > 0 ? <Badge variant="success"><CheckCircle2 className="h-3 w-3" /> Posted</Badge> :
-                    today && myDay < today ? <Badge variant="destructive">Missed</Badge> :
-                    today === myDay ? <Badge variant="warning">Due today</Badge> :
-                    <Badge variant="muted">Upcoming</Badge>
+                    (postsByAuthor[userId] ?? 0) > 0
+                      ? <Badge variant="success"><CheckCircle2 className="h-3 w-3" /> Active</Badge>
+                      : <Badge variant="muted">Idle</Badge>
                   }
                 />
               </PanelBody>
@@ -166,14 +168,14 @@ export default async function DashboardPage() {
           <Panel>
             <PanelHeader>
               <div className="font-hero text-base font-bold uppercase tracking-tighter text-portal-text">
-                This week
+                Latest signals
               </div>
               <SystemLabel tone="green" dot>Live</SystemLabel>
             </PanelHeader>
             <PanelBody>
               {postsThisWeek.length === 0 ? (
                 <div className="rounded-md border border-dashed border-portal-border-soft p-10 text-center">
-                  <p className="text-sm text-portal-text-muted">No posts have been transmitted this week yet.</p>
+                  <p className="text-sm text-portal-text-muted">No signals broadcast yet.</p>
                   {canAuthor(role) && (
                     <Button asChild className="mt-4">
                       <Link href="/editor/new">Be the first signal</Link>

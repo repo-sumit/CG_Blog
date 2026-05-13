@@ -40,7 +40,7 @@ export default async function MyPostsPage() {
           <h1 className="font-hero text-4xl font-bold uppercase tracking-tighter text-portal-text sm:text-5xl">
             My Posts
           </h1>
-          <p className="text-sm text-portal-text-muted">Every signal you've broadcast, every draft you've started.</p>
+          <p className="text-sm text-portal-text-muted">Every signal you've published, drafted, or scheduled.</p>
         </div>
         <Button asChild>
           <Link href="/editor/new">
@@ -53,7 +53,7 @@ export default async function MyPostsPage() {
         <Panel>
           <PanelBody className="p-16 text-center">
             <h2 className="font-hero text-xl font-bold uppercase text-portal-text">No transmissions yet</h2>
-            <p className="mt-2 text-sm text-portal-text-muted">Start your first weekly update.</p>
+            <p className="mt-2 text-sm text-portal-text-muted">Start your first signal.</p>
             <Button asChild className="mt-5">
               <Link href="/editor/new">Create your first post</Link>
             </Button>

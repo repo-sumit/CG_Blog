@@ -78,7 +78,7 @@ export function SubscribeSection() {
         <div className="relative grid gap-6 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-10">
           <div className="space-y-3">
             <div className="text-[11px] uppercase tracking-wider text-portal-orange">
-              ConveGenius Weekly Signals
+              ConveGenius Daily Signals
             </div>
             <h2 className="font-hero text-2xl font-bold uppercase tracking-tighter text-portal-text sm:text-4xl lg:text-5xl">
               Receive the next signal

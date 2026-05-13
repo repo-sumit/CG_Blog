@@ -105,7 +105,7 @@ function confirmPage(token: string): string {
   return pageShell(
     `
       <h1>Unsubscribe?</h1>
-      <p>Stop receiving the CG Signal weekly digest. You can re-subscribe anytime from the portal.</p>
+      <p>Stop receiving CG Signal notifications. You can re-subscribe anytime from the portal.</p>
       <form method="post" action="/api/subscribe/unsubscribe?t=${encodeURIComponent(token)}">
         <button type="submit">Confirm unsubscribe</button>
       </form>

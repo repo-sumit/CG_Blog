@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     default: "CG Signal — Team Blog Portal",
     template: "%s · CG Signal",
   },
-  description: "Internal weekly transmissions from the ConveGenius.ai team.",
+  description: "Daily signals from the ConveGenius.ai team — notes, retros, launches, and experiments.",
   robots: { index: false, follow: false, nocache: true },
   icons: {
     icon: "/cg.png",
