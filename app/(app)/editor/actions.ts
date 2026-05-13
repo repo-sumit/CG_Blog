@@ -250,8 +250,8 @@ export async function createDraftFromTemplate(): Promise<SavePostResult> {
 }
 
 /**
- * Soft delete: mark as archived. Recoverable for 30 days via `restorePost`.
- * After 30 days, the cron at /api/cron/cleanup-archived hard-deletes the row.
+ * Soft delete: mark as archived. The post stays in /me/posts → Trash forever
+ * (or until the author/admin permanently deletes it via `permanentDeletePost`).
  */
 export async function softDeletePost(id: string): Promise<SavePostResult> {
   const parsed = z.string().uuid().safeParse(id);
@@ -307,17 +307,28 @@ export async function restorePost(id: string): Promise<SavePostResult> {
 }
 
 /**
- * Permanent delete — manager-only. Used both by the admin UI and by the
- * cron that purges posts past their 30-day archival window.
+ * Permanent delete. The post owner can wipe their own archived posts from
+ * trash, and managers can wipe anyone's. Archived posts live in trash
+ * indefinitely — this is the only way they leave the database.
  */
 export async function permanentDeletePost(id: string): Promise<SavePostResult> {
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, error: "Invalid post id." };
-  const { profile } = await requireSession();
-  if (profile.role !== "manager") {
-    return { ok: false, error: "Only admins can permanently delete posts." };
-  }
+  const { userId, profile } = await requireSession();
   const supabase = createSupabaseServerClient();
+  const { data: existing } = await supabase
+    .from("posts")
+    .select("author_id, status")
+    .eq("id", parsed.data)
+    .maybeSingle();
+  if (!existing) return { ok: false, error: "Post not found." };
+  const row = existing as { author_id: string; status: string };
+  if (row.author_id !== userId && profile.role !== "manager") {
+    return { ok: false, error: "You can only delete your own posts." };
+  }
+  if (row.status !== "archived" && profile.role !== "manager") {
+    return { ok: false, error: "Move the post to trash first." };
+  }
   // Cascade: post_tags rows are deleted by FK on cascade; media_assets keep
   // their rows but post_id becomes null (FK is on delete set null).
   const { error } = await supabase.from("posts").delete().eq("id", parsed.data);

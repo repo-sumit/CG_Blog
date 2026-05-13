@@ -21,15 +21,6 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "muted" | "succes
   archived: "destructive",
 };
 
-const RETENTION_DAYS = 30;
-
-function daysUntilPurge(archivedAt: string | null): number | null {
-  if (!archivedAt) return null;
-  const archived = new Date(archivedAt).getTime();
-  const purgeAt = archived + RETENTION_DAYS * 24 * 60 * 60 * 1000;
-  return Math.max(0, Math.ceil((purgeAt - Date.now()) / (24 * 60 * 60 * 1000)));
-}
-
 export default async function MyPostsPage() {
   const { userId, profile } = await requireAuthor();
   const posts = await listOwnPosts(userId);
@@ -120,7 +111,7 @@ export default async function MyPostsPage() {
             ) : null,
           )}
 
-          {/* Trash bin — archived posts auto-purge after 30 days */}
+          {/* Trash bin — posts stay here until the author (or an admin) deletes them. */}
           {trashed.length > 0 && (
             <Panel>
               <PanelHeader>
@@ -128,32 +119,28 @@ export default async function MyPostsPage() {
                   Trash ({trashed.length})
                 </div>
                 <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
-                  Auto-purge after {RETENTION_DAYS} days
+                  Restore or delete permanently
                 </div>
               </PanelHeader>
               <PanelBody className="p-0">
                 <ul className="divide-y divide-portal-border-soft">
-                  {trashed.map((p) => {
-                    const daysLeft = daysUntilPurge(p.archived_at);
-                    return (
-                      <li key={p.id} className="flex items-center justify-between gap-3 px-6 py-4">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-ui font-bold text-portal-text-muted line-through">
-                            {p.title || "Untitled"}
-                          </div>
-                          <div className="mt-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
-                            Deleted {p.archived_at ? formatPostDate(p.archived_at) : ""}
-                            {daysLeft !== null ? ` · purges in ${daysLeft} day${daysLeft === 1 ? "" : "s"}` : ""}
-                          </div>
+                  {trashed.map((p) => (
+                    <li key={p.id} className="flex items-center justify-between gap-3 px-6 py-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-ui font-bold text-portal-text-muted line-through">
+                          {p.title || "Untitled"}
                         </div>
-                        <PostRowActions
-                          postId={p.id}
-                          status={p.status}
-                          canPermanentDelete={isManager(profile.role)}
-                        />
-                      </li>
-                    );
-                  })}
+                        <div className="mt-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
+                          Deleted {p.archived_at ? formatPostDate(p.archived_at) : ""}
+                        </div>
+                      </div>
+                      <PostRowActions
+                        postId={p.id}
+                        status={p.status}
+                        canPermanentDelete={isManager(profile.role)}
+                      />
+                    </li>
+                  ))}
                 </ul>
               </PanelBody>
             </Panel>

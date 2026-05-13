@@ -8,7 +8,6 @@ import { canAuthor, isManager, roleLabel } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils/cn";
 import { Avatar } from "@/components/ui/Avatar";
 import { BrandLockup } from "@/components/portal/BrandLockup";
-import { ViewModeButton } from "@/components/layout/ViewModeButton";
 
 interface NavItem {
   href: string;
@@ -35,8 +34,6 @@ interface Props {
 export function TopNav({ profile, effectiveRole, viewModeActive }: Props) {
   const pathname = usePathname();
   const visibleNav = NAV.filter((i) => i.show(effectiveRole));
-  // Only admins/authors can toggle view mode — viewers have nothing to switch from.
-  const canToggleViewMode = profile.role === "author" || profile.role === "manager";
 
   return (
     <header className="sticky top-0 z-40 border-b border-portal-border-soft bg-portal-main/90 backdrop-blur-md">
@@ -68,8 +65,6 @@ export function TopNav({ profile, effectiveRole, viewModeActive }: Props) {
         </nav>
 
         <div className="ml-auto flex items-center gap-3">
-          {canToggleViewMode && <ViewModeButton active={viewModeActive} />}
-
           <div className="hidden flex-col items-end leading-tight sm:flex">
             <span className="font-ui text-xs text-portal-text">{profile.full_name || profile.email}</span>
             <span className="font-ui text-[10px] uppercase tracking-wider text-portal-text-muted">

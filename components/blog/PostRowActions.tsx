@@ -10,22 +10,17 @@ import { softDeletePost, restorePost, permanentDeletePost } from "@/app/(app)/ed
 interface Props {
   postId: string;
   status: string;
+  /** Kept for back-compat with admin callers; archived posts always allow the
+   *  owner to permanently delete, so this only gates the option on live rows. */
   canPermanentDelete: boolean;
 }
 
-/**
- * The three lifecycle actions on a post row in /me/posts:
- *
- *  - Soft delete : status → archived, recoverable for 30 days
- *  - Restore     : archived → draft
- *  - Permanent   : hard delete (admin only)
- */
 export function PostRowActions({ postId, status, canPermanentDelete }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function onSoftDelete() {
-    if (!window.confirm("Move this post to the trash? You can restore it within 30 days.")) return;
+    if (!window.confirm("Move this post to the trash? You can restore or permanently delete it later.")) return;
     startTransition(async () => {
       const res = await softDeletePost(postId);
       if (!res.ok) toast.error(res.error || "Failed to delete.");
@@ -60,16 +55,17 @@ export function PostRowActions({ postId, status, canPermanentDelete }: Props) {
   }
 
   if (status === "archived") {
+    // The owner (and any manager) can permanently delete from trash. The
+    // `canPermanentDelete` flag is ignored here so authors can clean up their
+    // own bin without an admin.
     return (
       <div className="flex items-center gap-2">
         <Button size="sm" variant="outline" onClick={onRestore} disabled={pending}>
           <Undo2 className="h-3.5 w-3.5" /> Restore
         </Button>
-        {canPermanentDelete && (
-          <Button size="sm" variant="destructive" onClick={onPermanentDelete} disabled={pending}>
-            <ShieldAlert className="h-3.5 w-3.5" /> Delete forever
-          </Button>
-        )}
+        <Button size="sm" variant="destructive" onClick={onPermanentDelete} disabled={pending}>
+          <ShieldAlert className="h-3.5 w-3.5" /> Delete forever
+        </Button>
       </div>
     );
   }
