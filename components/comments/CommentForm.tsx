@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { addComment } from "@/app/posts/[slug]/actions";
+import { track } from "@/lib/analytics/track";
 import { cn } from "@/lib/utils/cn";
 
 interface Props {
@@ -57,6 +58,7 @@ export function CommentForm({ postId, postSlug, isAuthenticated }: Props) {
         return;
       }
       setBody("");
+      track("comment_added", { postId, slug: postSlug });
       toast.success("Comment posted.");
       router.refresh();
     });

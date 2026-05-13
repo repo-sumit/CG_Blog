@@ -6,6 +6,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { REACTION_EMOJIS, REACTION_LABELS, type ReactionEmoji } from "@/lib/reactions";
 import { toggleReaction } from "@/app/posts/[slug]/actions";
+import { track } from "@/lib/analytics/track";
 import { cn } from "@/lib/utils/cn";
 
 interface Props {
@@ -32,6 +33,13 @@ export function ReactionsBar({ postId, postSlug, counts, myReactions, isAuthenti
       router.push(`/login?redirect=${encodeURIComponent(`/posts/${postSlug}`)}`);
       return;
     }
+    const wasOn = local.mine.has(emoji);
+    track("reaction_added", {
+      postId,
+      slug: postSlug,
+      emoji,
+      toggled: wasOn ? "off" : "on",
+    });
     // Optimistic toggle
     setLocal((prev) => {
       const mine = new Set(prev.mine);

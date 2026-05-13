@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Panel, PanelBody, PanelHeader } from "@/components/portal/Panel";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { publicEnv } from "@/lib/env";
+import { track } from "@/lib/analytics/track";
 
 const ALLOWED_DOMAIN = "convegenius.ai";
 
@@ -56,6 +57,7 @@ export default function LoginForm({ redirectTo, initialError }: Props) {
   async function handleGoogle() {
     setError(undefined);
     setOauthing(true);
+    track("login_started", { provider: "google" });
     try {
       const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.auth.signInWithOAuth({

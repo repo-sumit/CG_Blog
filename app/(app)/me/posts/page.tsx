@@ -85,6 +85,9 @@ export default async function MyPostsPage() {
                             {p.status === "scheduled" && p.scheduled_for && (
                               <> · goes live {formatScheduledLabel(p.scheduled_for)}</>
                             )}
+                            {p.status === "published" && (
+                              <> · {p.viewCount ?? 0} {p.viewCount === 1 ? "view" : "views"}</>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">

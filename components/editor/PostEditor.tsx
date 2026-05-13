@@ -22,6 +22,7 @@ import { SchedulePostModal } from "@/components/editor/SchedulePostModal";
 import { savePost } from "@/app/(app)/editor/actions";
 import { wordCount } from "@/lib/utils/read-time";
 import { formatScheduledLabel } from "@/lib/utils/dates";
+import { track } from "@/lib/analytics/track";
 import { parseEmbedUrl } from "@/lib/utils/embeds";
 import { validateFile } from "@/lib/utils/file-validation";
 import { publicEnv } from "@/lib/env";
@@ -297,7 +298,12 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
     if (final === "submitted") {
       toast.success("Submitted for review.");
       router.push("/me/posts");
-    } else if (final === "published" && res.slug) {
+    } else if (final === "published" && res.slug && res.id) {
+      track("post_published", {
+        postId: res.id,
+        slug: res.slug,
+        isManager: role === "manager",
+      });
       toast.success("Post published successfully.");
       router.push(`/posts/${res.slug}`);
     } else {
@@ -318,9 +324,17 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
       if (!res?.ok) return;
       setScheduleModalOpen(false);
       const slot = res.scheduledFor ?? iso;
+      if (res.id && res.slug) {
+        track("post_scheduled", {
+          postId: res.id,
+          slug: res.slug,
+          isManager: role === "manager",
+          scheduledForIso: slot,
+        });
+      }
       toast.success(`Scheduled for ${formatScheduledLabel(slot)}.`);
     },
-    [handleSave, title],
+    [handleSave, role, title],
   );
 
   const handleRevertToDraft = useCallback(async () => {

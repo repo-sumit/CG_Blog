@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Space_Mono, Orbitron } from "next/font/google";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 // UI font — monospace, used everywhere except the hero wordmark.
@@ -51,6 +53,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             },
           }}
         />
+        {/* Vercel-managed analytics. Both packages are SSR-safe and inject
+            their tracking script only in production builds (and only on
+            Vercel-hosted deployments), so dev/preview/self-hosted builds
+            stay clean. */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

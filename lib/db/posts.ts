@@ -7,6 +7,8 @@ type PostAuthor = Pick<ProfileRow, "id" | "full_name" | "email" | "avatar_url" |
 export interface PostWithAuthor extends PostRow {
   author: PostAuthor | null;
   tags: Pick<TagRow, "id" | "name" | "slug">[];
+  /** Aggregate post_views count — populated by helpers that opt-in via `withViews`. */
+  viewCount?: number;
 }
 
 const POST_SELECT = `
@@ -148,7 +150,24 @@ export async function listOwnPosts(authorId: string): Promise<PostWithAuthor[]> 
     console.error("[listOwnPosts]", error);
     return [];
   }
-  return (data ?? []).map((r) => normalizeRow(r as Record<string, unknown>));
+  const posts = (data ?? []).map((r) => normalizeRow(r as Record<string, unknown>));
+
+  // Tally views for the author's posts in one extra round-trip. RLS lets
+  // authors read their own post_views rows, so no service-role escalation
+  // is needed here.
+  if (posts.length > 0) {
+    const { data: viewRows } = await supabase
+      .from("post_views")
+      .select("post_id")
+      .in("post_id", posts.map((p) => p.id));
+    const tally = new Map<string, number>();
+    for (const r of (viewRows ?? []) as { post_id: string }[]) {
+      tally.set(r.post_id, (tally.get(r.post_id) ?? 0) + 1);
+    }
+    for (const p of posts) p.viewCount = tally.get(p.id) ?? 0;
+  }
+
+  return posts;
 }
 
 export async function listPostsThisWeek(weekStart: string): Promise<PostWithAuthor[]> {

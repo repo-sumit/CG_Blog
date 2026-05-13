@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, Clock, Search } from "lucide-react";
+import { ArrowRight, Clock, Eye, Search } from "lucide-react";
 import {
   listPublicPosts,
   listPublicTags,
@@ -340,8 +340,14 @@ function PublicPostCard({
           <span className="min-w-0 flex-1 truncate font-ui text-xs text-portal-text">
             {post.author?.full_name || post.author?.email}
           </span>
-          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
-            <Clock className="h-3 w-3" /> {post.read_time_minutes}m
+          <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-wider text-portal-text-muted">
+            <span className="inline-flex items-center gap-1">
+              <Eye className="h-3 w-3" /> {post.viewCount}
+            </span>
+            <span aria-hidden className="text-portal-text-soft">·</span>
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" /> {post.read_time_minutes}m
+            </span>
           </span>
         </div>
       </Link>

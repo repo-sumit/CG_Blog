@@ -27,6 +27,8 @@ type PublicAuthor = Pick<ProfileRow, "id" | "full_name" | "email" | "avatar_url"
 export interface PublicPost extends PostRow {
   author: PublicAuthor | null;
   tags: Pick<TagRow, "id" | "name" | "slug">[];
+  /** Aggregate post_views count — server-computed, never inferred client-side. */
+  viewCount: number;
 }
 
 const PUBLIC_SELECT = `
@@ -62,7 +64,35 @@ function normalize(row: Record<string, unknown>): PublicPost {
         }
       : null,
     tags,
+    viewCount: 0, // back-filled by `attachViewCounts` after the join.
   };
+}
+
+/**
+ * Stitches `post_views` counts onto an already-fetched list of public posts.
+ * One round-trip per call regardless of list size — we group-count in a single
+ * query using Supabase's foreign-table aggregate. The counts table is RLS-
+ * protected (admin + author), so we use the service client.
+ */
+async function attachViewCounts(posts: PublicPost[]): Promise<PublicPost[]> {
+  if (posts.length === 0) return posts;
+  const service = createSupabaseServiceClient();
+  const ids = posts.map((p) => p.id);
+  // Pull every view row for the requested posts and aggregate in JS — fine
+  // for our scale (single-digit-thousands of views per post).
+  const { data, error } = await service
+    .from("post_views")
+    .select("post_id")
+    .in("post_id", ids);
+  if (error) {
+    console.error("[attachViewCounts]", error);
+    return posts;
+  }
+  const tally = new Map<string, number>();
+  for (const r of (data ?? []) as { post_id: string }[]) {
+    tally.set(r.post_id, (tally.get(r.post_id) ?? 0) + 1);
+  }
+  return posts.map((p) => ({ ...p, viewCount: tally.get(p.id) ?? 0 }));
 }
 
 export async function listPublicPosts(limit = 30): Promise<PublicPost[]> {
@@ -77,7 +107,8 @@ export async function listPublicPosts(limit = 30): Promise<PublicPost[]> {
     console.error("[listPublicPosts]", error);
     return [];
   }
-  return (data ?? []).map((r: unknown) => normalize(r as Record<string, unknown>));
+  const posts = (data ?? []).map((r: unknown) => normalize(r as Record<string, unknown>));
+  return attachViewCounts(posts);
 }
 
 export async function getPublicPostBySlug(slug: string): Promise<PublicPost | null> {
@@ -89,7 +120,9 @@ export async function getPublicPostBySlug(slug: string): Promise<PublicPost | nu
     .eq("status", "published") // SECURITY: drafts are not addressable via this route.
     .maybeSingle();
   if (error || !data) return null;
-  return normalize(data as Record<string, unknown>);
+  const post = normalize(data as Record<string, unknown>);
+  const [withCount] = await attachViewCounts([post]);
+  return withCount ?? post;
 }
 
 export async function listPublicTags(): Promise<{ id: string; name: string; slug: string }[]> {

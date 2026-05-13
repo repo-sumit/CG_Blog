@@ -65,6 +65,39 @@ export function DemoWatchingCounter({
   compact = false,
   className,
 }: DemoWatchingCounterProps) {
+  // Hooks must run unconditionally — branch on `mode` AFTER the hook calls so
+  // React's rules-of-hooks invariant holds even when callers swap mode at
+  // runtime. The timer effect early-returns when mode !== "demo" instead.
+  const variantIndex = useMemo(
+    () => Math.floor(Math.random() * COPY_VARIANTS.length),
+    [],
+  );
+
+  // We deliberately render `null` during SSR + the first client paint so the
+  // server-rendered HTML stays deterministic and React never warns about a
+  // hydration mismatch. Once mounted, the counter takes over.
+  const [mounted, setMounted] = useState(false);
+  const [count, setCount] = useState<number>(() =>
+    clamp(pickRange(INITIAL_MIN, INITIAL_MAX), min, max),
+  );
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    if (mode !== "demo") return;
+    function scheduleNext() {
+      const delay = pickRange(TICK_MIN_MS, TICK_MAX_MS);
+      timerRef.current = setTimeout(() => {
+        setCount((prev) => getNextCount(prev, min, max));
+        scheduleNext();
+      }, delay);
+    }
+    scheduleNext();
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [mode, min, max]);
+
   // Real-mode is a no-op today; we render an "unavailable" pill so callers
   // can wire it up later without changing markup placement.
   if (mode === "real") {
@@ -85,37 +118,6 @@ export function DemoWatchingCounter({
       </span>
     );
   }
-
-  // Pick a stable copy variant per mount so the wording doesn't flicker on
-  // every tick. The variant index is derived once and held across renders.
-  const variantIndex = useMemo(
-    () => Math.floor(Math.random() * COPY_VARIANTS.length),
-    [],
-  );
-
-  // We deliberately render `null` during SSR + the first client paint so the
-  // server-rendered HTML stays deterministic and React never warns about a
-  // hydration mismatch. Once mounted, the counter takes over.
-  const [mounted, setMounted] = useState(false);
-  const [count, setCount] = useState<number>(() =>
-    clamp(pickRange(INITIAL_MIN, INITIAL_MAX), min, max),
-  );
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-    function scheduleNext() {
-      const delay = pickRange(TICK_MIN_MS, TICK_MAX_MS);
-      timerRef.current = setTimeout(() => {
-        setCount((prev) => getNextCount(prev, min, max));
-        scheduleNext();
-      }, delay);
-    }
-    scheduleNext();
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [min, max]);
 
   if (!mounted) return null;
 

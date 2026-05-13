@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Clock } from "lucide-react";
+import { ChevronLeft, Clock, Eye } from "lucide-react";
 import {
   getPublicPostBySlug,
   listPublicPosts,
@@ -17,6 +17,7 @@ import { PublicNav } from "@/components/layout/PublicNav";
 import { PortalFooter } from "@/components/layout/PortalFooter";
 import { CommentsSection } from "@/components/comments/CommentsSection";
 import { ReactionsBar } from "@/components/reactions/ReactionsBar";
+import { PostViewTracker } from "@/components/analytics/PostViewTracker";
 import { formatPostDate } from "@/lib/utils/dates";
 import { roleLabel } from "@/lib/auth/roles";
 import { sanitizeHtml } from "@/lib/editor/sanitize";
@@ -97,14 +98,30 @@ export default async function PublicPostPage({ params }: { params: { slug: strin
                 <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
                   {post.published_at ? formatPostDate(post.published_at) : ""}
                 </div>
-                <div className="mt-1 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
-                  <Clock className="h-3 w-3" /> {post.read_time_minutes} min read
+                <div className="mt-1 inline-flex items-center gap-2 text-[10px] uppercase tracking-wider text-portal-text-muted">
+                  <span className="inline-flex items-center gap-1">
+                    <Eye className="h-3 w-3" /> {post.viewCount} views
+                  </span>
+                  <span aria-hidden className="text-portal-text-soft">·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> {post.read_time_minutes} min read
+                  </span>
                 </div>
               </div>
             </div>
 
             <div className="article-body mt-8" dangerouslySetInnerHTML={{ __html: safeHtml }} />
           </article>
+
+          {/* Tracks one Supabase row per session per post (30-min throttle)
+              and a Vercel `post_view` event on every navigation. */}
+          <PostViewTracker
+            postId={post.id}
+            slug={post.slug}
+            title={post.title}
+            author={post.author?.full_name ?? post.author?.email ?? null}
+            isLoggedIn={!!session}
+          />
 
           {/* Reactions */}
           <div className="mt-10 border-t border-portal-border-soft pt-6">
