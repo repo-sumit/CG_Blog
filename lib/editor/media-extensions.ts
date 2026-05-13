@@ -42,6 +42,9 @@ declare module "@tiptap/core" {
     cgVideo: {
       setVideo: (attrs: { src: string; title?: string }) => ReturnType;
     };
+    cgEmbed: {
+      setEmbed: (attrs: { src: string; provider?: string }) => ReturnType;
+    };
   }
 }
 
@@ -142,6 +145,101 @@ export const VideoBlock = Node.create({
 });
 
 /**
+ * External video embed (YouTube / Vimeo / Loom / Google Drive). Stored as a
+ * typed node so ProseMirror manages its DOM lifecycle — same reasoning as
+ * AudioBlock / VideoBlock: raw iframe HTML inserted via `insertContent`
+ * triggers `removeChild` errors because the schema doesn't recognise it.
+ *
+ * The `src` attribute is ALWAYS one of the allowlisted embed URLs returned
+ * by `lib/utils/embeds.ts` → `parseEmbedUrl()`. Callers must run user input
+ * through that parser; the node itself doesn't validate the host because
+ * by the time we get here the URL is already provider-canonicalised.
+ *
+ * The renderer wraps the iframe in a 16:9 aspect-ratio container so the
+ * player scales responsively on any viewport.
+ */
+export const EmbedBlock = Node.create({
+  name: "videoEmbed",
+  group: "block",
+  atom: true,
+  selectable: true,
+  draggable: true,
+
+  addAttributes() {
+    return {
+      src: { default: null },
+      provider: { default: null },
+    };
+  },
+
+  parseHTML() {
+    // Accept both the new shape (the wrapper we render below) and the legacy
+    // shape (raw <div data-embed><iframe></div>) so old saved posts still
+    // load correctly into the editor.
+    return [
+      {
+        tag: "div[data-video-embed]",
+        getAttrs: (node) => {
+          const el = node as HTMLElement;
+          const iframe = el.querySelector("iframe");
+          return {
+            src: iframe?.getAttribute("src") ?? null,
+            provider: el.getAttribute("data-video-embed") ?? null,
+          };
+        },
+      },
+      {
+        tag: "div[data-embed]",
+        getAttrs: (node) => {
+          const el = node as HTMLElement;
+          const iframe = el.querySelector("iframe");
+          return {
+            src: iframe?.getAttribute("src") ?? null,
+            provider: el.getAttribute("data-embed") ?? null,
+          };
+        },
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    const { src, provider } = HTMLAttributes as { src: string; provider?: string };
+    return [
+      "div",
+      {
+        "data-video-embed": provider ?? "embed",
+        class: "video-embed-frame",
+        style: "position:relative;padding-bottom:56.25%;height:0;margin:14px 0;border-radius:12px;overflow:hidden;",
+      },
+      [
+        "iframe",
+        {
+          src,
+          style: "position:absolute;inset:0;width:100%;height:100%;border:0;",
+          allow:
+            "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen",
+          allowfullscreen: "allowfullscreen",
+          loading: "lazy",
+          referrerpolicy: "no-referrer",
+        },
+      ],
+    ];
+  },
+
+  addCommands() {
+    return {
+      setEmbed:
+        (attrs) =>
+        ({ chain }) =>
+          chain()
+            .insertContent({ type: this.name, attrs })
+            .focus()
+            .run(),
+    };
+  },
+});
+
+/**
  * Helper for callers that just want to insert a typed node without
  * importing the chain command directly. Returns true on success.
  */
@@ -152,4 +250,11 @@ export function insertMediaBlock(
 ): boolean {
   if (kind === "audio") return editor.chain().focus().setAudio(attrs).run();
   return editor.chain().focus().setVideo(attrs).run();
+}
+
+export function insertVideoEmbed(
+  editor: Editor,
+  attrs: { src: string; provider?: string },
+): boolean {
+  return editor.chain().focus().setEmbed(attrs).run();
 }

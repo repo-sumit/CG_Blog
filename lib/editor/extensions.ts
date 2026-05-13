@@ -9,7 +9,7 @@ import Highlight from "@tiptap/extension-highlight";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import type { Extensions } from "@tiptap/react";
-import { AudioBlock, VideoBlock } from "@/lib/editor/media-extensions";
+import { AudioBlock, EmbedBlock, VideoBlock } from "@/lib/editor/media-extensions";
 
 export function editorExtensions(): Extensions {
   return [
@@ -38,5 +38,10 @@ export function editorExtensions(): Extensions {
     // the full context.
     AudioBlock,
     VideoBlock,
+    // External video embeds (YouTube / Vimeo / Loom / Google Drive). Wraps
+    // the provider iframe in a 16:9 responsive container; URLs are
+    // pre-validated by `parseEmbedUrl` in `lib/utils/embeds.ts` so the
+    // node never has to trust raw user input for the `src` attribute.
+    EmbedBlock,
   ];
 }

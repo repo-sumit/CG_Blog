@@ -442,6 +442,20 @@
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
+
+/* External video embeds (YouTube / Loom / Vimeo / Google Drive). The node's
+   renderHTML sets inline `padding-bottom: 56.25%` for the 16:9 aspect ratio
+   so the iframe scales responsively. We add visual chrome + selected-state
+   styling here. */
+.ProseMirror .video-embed-frame,
+.article-body .video-embed-frame {
+  background: var(--bg-panel-soft);
+  border: 1px solid var(--border-soft);
+}
+.ProseMirror .video-embed-frame.ProseMirror-selectednode {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
 .article-body a,
 .article-body a * {
   color: var(--accent-blue) !important;

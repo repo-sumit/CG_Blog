@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
 import { toast } from "sonner";
 import {
-  Eye, Save, FileCheck2, Loader2, Sparkles, Send,
+  Save, FileCheck2, Loader2, Sparkles, Send,
   Image as ImageIcon, Video, Music, Link as LinkIcon,
   Upload, X, Check, Calendar, RotateCcw,
   Bold, Italic, Underline as UnderlineIcon, Highlighter,
@@ -27,7 +27,7 @@ import { track } from "@/lib/analytics/track";
 import { parseEmbedUrl } from "@/lib/utils/embeds";
 import { validateFile } from "@/lib/utils/file-validation";
 import { directUploadMedia } from "@/lib/media/direct-upload";
-import { insertMediaBlock } from "@/lib/editor/media-extensions";
+import { insertMediaBlock, insertVideoEmbed } from "@/lib/editor/media-extensions";
 import { publicEnv } from "@/lib/env";
 import type { PostRow, PostStatus, TagRow, AppRole } from "@/lib/db/types";
 import { cn } from "@/lib/utils/cn";
@@ -73,7 +73,6 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
   const [busyAction, setBusyAction] = useState<null | "draft" | "schedule" | "now" | "revert">(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const [previewMode, setPreviewMode] = useState(false);
   const [words, setWords] = useState(() => wordCount((initialPost?.excerpt ?? "") + " "));
   const [coverMediaId, setCoverMediaId] = useState<string | null>(initialPost?.cover?.id ?? null);
   const [coverUrl, setCoverUrl] = useState<string | null>(initialPost?.cover?.url ?? null);
@@ -311,17 +310,37 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
     if (!url) return;
     const info = parseEmbedUrl(url);
     if (!info) {
-      toast.error("Unsupported embed URL. Use YouTube, Vimeo, Loom, or Google Drive.");
+      toast.error("Unsupported video link. Use YouTube, Loom, Vimeo, or Google Drive.");
       return;
     }
-    editor
-      .chain()
-      .focus()
-      .insertContent(
-        `<div data-embed="${info.provider}" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:0.75rem"><iframe src="${info.embedUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allow="autoplay; fullscreen; encrypted-media" allowfullscreen loading="lazy"></iframe></div><p></p>`,
-      )
-      .run();
+    insertVideoEmbed(editor, { src: info.embedUrl, provider: info.provider });
     setSaveState("unsaved");
+    toast.success("Video embed added.");
+  }, [editor]);
+
+  // Paste-to-embed: when the clipboard contains JUST a supported video URL
+  // (no other text), insert it as a typed embed node instead of dropping a
+  // bare link into the paragraph. Multi-word pastes that happen to contain
+  // a URL fall through to TipTap's normal link auto-detection.
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom;
+    const onPaste = (event: ClipboardEvent) => {
+      const text = event.clipboardData?.getData("text/plain") ?? "";
+      const trimmed = text.trim();
+      // Must be a single bare URL — no spaces, no newlines.
+      if (!trimmed || trimmed.includes("\n") || trimmed.includes(" ")) return;
+      if (!/^https?:\/\//i.test(trimmed)) return;
+      const info = parseEmbedUrl(trimmed);
+      if (!info) return;
+      event.preventDefault();
+      event.stopPropagation();
+      insertVideoEmbed(editor, { src: info.embedUrl, provider: info.provider });
+      setSaveState("unsaved");
+      toast.success("Video embed added.");
+    };
+    dom.addEventListener("paste", onPaste);
+    return () => dom.removeEventListener("paste", onPaste);
   }, [editor]);
 
   const handleSaveDraft = useCallback(async () => {
@@ -590,158 +609,147 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        {/* Editor shell — sticky toolbar requires NO `overflow-hidden` on this
-            container. With `overflow-hidden` set, CSS treats the Card as a
-            scroll context and the sticky toolbar pins to the Card's top
-            instead of the viewport, scrolling away with the card. Rounded
-            corners are preserved by `rounded-md` from `portal-panel` even
-            without clipping — the inner toolbar / content respect the
-            radius on their own. */}
-        <Card className="min-w-0">
-          {!previewMode && (
-            <EditorToolbar
-              editor={editor}
-              onInsertImage={() => pickFile("image/*", handleFileInsert("image"))}
-              onInsertVideo={() => pickFile("video/*", handleFileInsert("video"))}
-              onInsertAudio={() => pickFile("audio/*", handleFileInsert("audio"))}
-              onInsertEmbed={handleEmbed}
-            />
-          )}
-          <CardContent className="p-0">
-            <div className="space-y-4 px-4 pt-4 pb-4 sm:px-6 sm:pt-5 sm:pb-5">
-              <label className="block">
-                <span className="mb-2 flex items-center gap-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
-                  Title
-                  <span aria-hidden className="text-portal-red">*</span>
-                  <span className="sr-only"> (required)</span>
-                </span>
-                <input
-                  value={title}
-                  onChange={(e) => {
-                    setTitle(e.target.value);
-                    if (!titleTouched) setTitleTouched(true);
-                    setSaveState("unsaved");
-                  }}
-                  onBlur={() => setTitleTouched(true)}
-                  placeholder="Give your transmission a title…"
-                  aria-required="true"
-                  aria-invalid={titleInvalid || undefined}
-                  className={cn(
-                    "w-full bg-transparent text-2xl font-bold leading-tight tracking-tight outline-none placeholder:text-muted-foreground sm:text-3xl md:text-4xl",
-                    "border-b-2 pb-2 transition-colors",
-                    titleInvalid
-                      ? "border-portal-red"
-                      : "border-portal-border-soft focus:border-portal-blue",
-                  )}
-                  maxLength={160}
-                />
-                {titleInvalid && (
-                  <span className="mt-1.5 block text-[11px] font-medium text-portal-red">
-                    Please add a title before saving.
+        {/* Left column: toolbar + editor card as SIBLINGS, not parent/child.
+            Sticky position binds against the nearest scrolling ancestor, and
+            `.portal-panel` (which the Card uses) sets `overflow: hidden` —
+            which CSS treats as a scroll mechanism for sticky. Moving the
+            toolbar OUT of the Card means its nearest scroll ancestor is the
+            body, so it pins to the viewport like we want. */}
+        <div className="flex min-w-0 flex-col gap-3">
+          <EditorToolbar
+            editor={editor}
+            onInsertImage={() => pickFile("image/*", handleFileInsert("image"))}
+            onInsertVideo={() => pickFile("video/*", handleFileInsert("video"))}
+            onInsertAudio={() => pickFile("audio/*", handleFileInsert("audio"))}
+            onInsertEmbed={handleEmbed}
+          />
+          <Card className="min-w-0">
+            <CardContent className="p-0">
+              <div className="space-y-4 px-4 pt-4 pb-4 sm:px-6 sm:pt-5 sm:pb-5">
+                <label className="block">
+                  <span className="mb-2 flex items-center gap-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
+                    Title
+                    <span aria-hidden className="text-portal-red">*</span>
+                    <span className="sr-only"> (required)</span>
                   </span>
-                )}
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-[10px] uppercase tracking-wider text-portal-text-muted">
-                  Short summary
-                </span>
-                <Textarea
-                  value={excerpt ?? ""}
-                  onChange={(e) => {
-                    setExcerpt(e.target.value);
-                    setSaveState("unsaved");
-                  }}
-                  placeholder="Short summary used in feed cards and previews…"
-                  className="min-h-[64px] resize-y border-2 border-portal-border-soft bg-portal-panel-soft text-sm leading-relaxed"
-                  maxLength={500}
-                />
-              </label>
-            </div>
-            {previewMode ? (
-              <div className="article-body px-5 pb-8">
-                <div dangerouslySetInnerHTML={{ __html: editor?.getHTML() ?? "" }} />
+                  <input
+                    value={title}
+                    onChange={(e) => {
+                      setTitle(e.target.value);
+                      if (!titleTouched) setTitleTouched(true);
+                      setSaveState("unsaved");
+                    }}
+                    onBlur={() => setTitleTouched(true)}
+                    placeholder="Give your transmission a title…"
+                    aria-required="true"
+                    aria-invalid={titleInvalid || undefined}
+                    className={cn(
+                      "w-full bg-transparent text-2xl font-bold leading-tight tracking-tight outline-none placeholder:text-muted-foreground sm:text-3xl md:text-4xl",
+                      "border-b-2 pb-2 transition-colors",
+                      titleInvalid
+                        ? "border-portal-red"
+                        : "border-portal-border-soft focus:border-portal-blue",
+                    )}
+                    maxLength={160}
+                  />
+                  {titleInvalid && (
+                    <span className="mt-1.5 block text-[11px] font-medium text-portal-red">
+                      Please add a title before saving.
+                    </span>
+                  )}
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-[10px] uppercase tracking-wider text-portal-text-muted">
+                    Short summary
+                  </span>
+                  <Textarea
+                    value={excerpt ?? ""}
+                    onChange={(e) => {
+                      setExcerpt(e.target.value);
+                      setSaveState("unsaved");
+                    }}
+                    placeholder="Short summary used in feed cards and previews…"
+                    className="min-h-[64px] resize-y border-2 border-portal-border-soft bg-portal-panel-soft text-sm leading-relaxed"
+                    maxLength={500}
+                  />
+                </label>
               </div>
-            ) : (
-              <>
-                <EditorContent editor={editor} />
-                {/* Floating selection toolbar — shows on any text selection.
-                    Hidden automatically when the selection collapses; tippy
-                    handles positioning + scroll/outside-click hiding for us.
-                    Disabled in previewMode by the parent ternary. */}
-                {editor && (
-                  <BubbleMenu
-                    editor={editor}
-                    tippyOptions={{ duration: 100, placement: "top" }}
-                    className="bubble-menu"
+
+              <EditorContent editor={editor} />
+
+              {/* Floating selection toolbar — shows on any text selection.
+                  Hidden automatically when selection collapses; tippy handles
+                  positioning + scroll/outside-click hiding. */}
+              {editor && (
+                <BubbleMenu
+                  editor={editor}
+                  tippyOptions={{ duration: 100, placement: "top" }}
+                  className="bubble-menu"
+                >
+                  <BubbleMenuButton
+                    onClick={() => editor.chain().focus().toggleBold().run()}
+                    active={editor.isActive("bold")}
+                    label="Bold"
                   >
-                    <BubbleMenuButton
-                      onClick={() => editor.chain().focus().toggleBold().run()}
-                      active={editor.isActive("bold")}
-                      label="Bold"
-                    >
-                      <Bold className="h-3.5 w-3.5" />
-                    </BubbleMenuButton>
-                    <BubbleMenuButton
-                      onClick={() => editor.chain().focus().toggleItalic().run()}
-                      active={editor.isActive("italic")}
-                      label="Italic"
-                    >
-                      <Italic className="h-3.5 w-3.5" />
-                    </BubbleMenuButton>
-                    <BubbleMenuButton
-                      onClick={() => editor.chain().focus().toggleUnderline().run()}
-                      active={editor.isActive("underline")}
-                      label="Underline"
-                    >
-                      <UnderlineIcon className="h-3.5 w-3.5" />
-                    </BubbleMenuButton>
-                    <BubbleMenuButton
-                      onClick={() =>
-                        editor.chain().focus().toggleHighlight({ color: "#fef08a" }).run()
+                    <Bold className="h-3.5 w-3.5" />
+                  </BubbleMenuButton>
+                  <BubbleMenuButton
+                    onClick={() => editor.chain().focus().toggleItalic().run()}
+                    active={editor.isActive("italic")}
+                    label="Italic"
+                  >
+                    <Italic className="h-3.5 w-3.5" />
+                  </BubbleMenuButton>
+                  <BubbleMenuButton
+                    onClick={() => editor.chain().focus().toggleUnderline().run()}
+                    active={editor.isActive("underline")}
+                    label="Underline"
+                  >
+                    <UnderlineIcon className="h-3.5 w-3.5" />
+                  </BubbleMenuButton>
+                  <BubbleMenuButton
+                    onClick={() =>
+                      editor.chain().focus().toggleHighlight({ color: "#fef08a" }).run()
+                    }
+                    active={editor.isActive("highlight")}
+                    label="Highlight"
+                  >
+                    <Highlighter className="h-3.5 w-3.5" />
+                  </BubbleMenuButton>
+                  <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+                  <BubbleMenuButton
+                    onClick={() => {
+                      const prev = editor.getAttributes("link").href as string | undefined;
+                      const url = window.prompt("Link URL", prev ?? "https://");
+                      if (url === null) return;
+                      if (url === "") {
+                        editor.chain().focus().extendMarkRange("link").unsetLink().run();
+                        return;
                       }
-                      active={editor.isActive("highlight")}
-                      label="Highlight"
-                    >
-                      <Highlighter className="h-3.5 w-3.5" />
-                    </BubbleMenuButton>
-                    <span className="mx-1 h-4 w-px bg-border" aria-hidden />
-                    <BubbleMenuButton
-                      onClick={() => {
-                        const prev = editor.getAttributes("link").href as string | undefined;
-                        const url = window.prompt("Link URL", prev ?? "https://");
-                        if (url === null) return;
-                        if (url === "") {
-                          editor.chain().focus().extendMarkRange("link").unsetLink().run();
-                          return;
-                        }
-                        editor
-                          .chain()
-                          .focus()
-                          .extendMarkRange("link")
-                          .setLink({ href: url })
-                          .run();
-                      }}
-                      active={editor.isActive("link")}
-                      label="Link"
-                    >
-                      <LinkIcon className="h-3.5 w-3.5" />
-                    </BubbleMenuButton>
-                  </BubbleMenu>
-                )}
-              </>
-            )}
-            <div className="flex items-center justify-between border-t bg-muted/30 px-5 py-2 text-xs text-muted-foreground">
-              <div>{words} words · ~{readMin} min read</div>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 hover:text-foreground"
-                onClick={() => setPreviewMode((v) => !v)}
-              >
-                <Eye className="h-3.5 w-3.5" /> {previewMode ? "Edit" : "Preview"}
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+                      editor
+                        .chain()
+                        .focus()
+                        .extendMarkRange("link")
+                        .setLink({ href: url })
+                        .run();
+                    }}
+                    active={editor.isActive("link")}
+                    label="Link"
+                  >
+                    <LinkIcon className="h-3.5 w-3.5" />
+                  </BubbleMenuButton>
+                </BubbleMenu>
+              )}
+
+              {/* Word + read-time stats. The previous "Preview" toggle here
+                  was removed — the in-editor preview was breaking the page
+                  by toggling out the EditorContent + BubbleMenu mid-render. */}
+              <div className="flex items-center justify-between border-t border-portal-border-soft bg-portal-panel-soft px-5 py-2 text-xs text-portal-text-muted">
+                <div>{words} words · ~{readMin} min read</div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         <aside className="space-y-4 min-w-0">
           <Card>

@@ -8,9 +8,11 @@ export const publicEnv = {
   requireManagerReview:
     (process.env.NEXT_PUBLIC_REQUIRE_MANAGER_REVIEW ?? "false").toLowerCase() === "true",
   maxUploadMb: Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB ?? "50"),
-  // Per-type caps. Videos run big; audio is in the middle; images / docs
-  // fall back to the generic `maxUploadMb` if their own env isn't set.
-  maxVideoUploadMb: Number(process.env.NEXT_PUBLIC_MAX_VIDEO_UPLOAD_MB ?? "150"),
+  // Per-type caps. Bumped back down to 50 MB for video — Supabase free tier
+  // rejects anything bigger anyway, and large uploads from the browser were
+  // unreliable on flaky connections. External video embeds (YouTube / Loom /
+  // Drive) are the recommended path for anything beyond ~50 MB of footage.
+  maxVideoUploadMb: Number(process.env.NEXT_PUBLIC_MAX_VIDEO_UPLOAD_MB ?? "50"),
   maxAudioUploadMb: Number(process.env.NEXT_PUBLIC_MAX_AUDIO_UPLOAD_MB ?? "50"),
   // Demo-only: shows a blue "Demo: N watching" counter in the public nav.
   // Disabled unless explicitly opted-in so production deploys never ship the
