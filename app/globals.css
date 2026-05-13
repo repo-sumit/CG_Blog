@@ -395,7 +395,20 @@
 .ProseMirror blockquote { border-left: 3px solid var(--accent-orange); padding-left: 16px; font-style: italic; color: var(--text-muted); }
 .ProseMirror code { background: var(--bg-panel-soft); border: 1px solid var(--border-soft); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
 .ProseMirror pre  { background: var(--bg-panel-soft); border: 1px solid var(--border-soft); padding: 12px 16px; border-radius: var(--radius-md); overflow-x: auto; font-size: 13px; }
-.ProseMirror a { color: var(--accent-blue); text-decoration: underline; text-underline-offset: 2px; }
+/* Hyperlinks — the whole anchor reads as blue in both light and dark mode.
+   `color: …` overrides any inline `color` left over from a pasted style;
+   `decoration-color: currentColor` keeps the underline tinted to match. */
+.ProseMirror a,
+.ProseMirror a * {
+  color: var(--accent-blue) !important;
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-underline-offset: 2px;
+}
+.ProseMirror a:hover,
+.ProseMirror a:hover * {
+  text-decoration-thickness: 2px;
+}
 .ProseMirror img { @apply rounded-lg my-4 max-w-full h-auto; border: 1px solid var(--border-soft); }
 .ProseMirror hr { border: none; border-top: 1px solid var(--border-muted); margin: 24px 0; }
 
@@ -409,7 +422,28 @@
 .article-body ol { @apply list-decimal pl-6 my-4; }
 .article-body blockquote { border-left: 3px solid var(--accent-orange); padding-left: 16px; font-style: italic; color: var(--text-muted); margin: 24px 0; }
 .article-body img, .article-body video, .article-body audio { @apply my-6 rounded-lg max-w-full; border: 1px solid var(--border-soft); }
-.article-body a { color: var(--accent-blue); text-decoration: underline; text-underline-offset: 2px; }
+.article-body a,
+.article-body a * {
+  color: var(--accent-blue) !important;
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-underline-offset: 2px;
+}
+.article-body a:hover { text-decoration-thickness: 2px; }
+
+/* TipTap floating selection bubble — themed to match the dark portal panel
+   stack. Tippy adds its own positioning wrapper; we style the inner content
+   so the bubble feels native rather than the default tippy chrome. */
+.bubble-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-muted);
+  box-shadow: var(--shadow-panel);
+}
 .article-body code { background: var(--bg-panel-soft); border: 1px solid var(--border-soft); padding: 1px 6px; border-radius: 4px; }
 .article-body pre { background: var(--bg-panel-soft); border: 1px solid var(--border-soft); padding: 14px 18px; border-radius: var(--radius-md); overflow-x: auto; }
 

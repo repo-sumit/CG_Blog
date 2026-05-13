@@ -8,6 +8,9 @@ export const publicEnv = {
   requireManagerReview:
     (process.env.NEXT_PUBLIC_REQUIRE_MANAGER_REVIEW ?? "false").toLowerCase() === "true",
   maxUploadMb: Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB ?? "50"),
+  // Videos can be substantially bigger than images. Capped separately so
+  // raising the video limit doesn't accidentally relax the image cap.
+  maxVideoUploadMb: Number(process.env.NEXT_PUBLIC_MAX_VIDEO_UPLOAD_MB ?? "150"),
   // Demo-only: shows a blue "Demo: N watching" counter in the public nav.
   // Disabled unless explicitly opted-in so production deploys never ship the
   // simulated counter by accident.

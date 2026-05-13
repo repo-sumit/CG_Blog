@@ -19,6 +19,18 @@ interface DigestPost {
   readTimeMinutes: number;
 }
 
+interface PostNotificationInput {
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  /** Plain-text first paragraph (already stripped of HTML). Optional fallback. */
+  firstParagraph: string | null;
+  authorName: string;
+  readTimeMinutes: number;
+  /** Absolute public URL for the cover image, or null when none. */
+  coverUrl: string | null;
+}
+
 interface BaseTemplateOpts {
   appUrl: string;
   unsubscribeUrl: string;
@@ -227,6 +239,119 @@ export function digestTemplate({
           </tr>
           <tr>
             <td style="padding-top:20px;border-top:1px solid #e5e7eb;">
+              ${asciiSignoff()}
+            </td>
+          </tr>
+        </table>
+      `,
+      { appUrl, unsubscribeUrl },
+    ),
+  };
+}
+
+// ============================================================
+// Per-post notification (preferred for on-publish sends)
+// ------------------------------------------------------------
+// This is the email we send when a single post goes live — thumbnail at top,
+// title, short summary, the first paragraph of the body, and a "Read More"
+// button. Replaces the digest-style template for `Post Now` flows; the
+// digest template still exists for hypothetical multi-post sends.
+// ============================================================
+
+export function postNotificationTemplate({
+  appUrl,
+  unsubscribeUrl,
+  post,
+  dayLabel,
+}: BaseTemplateOpts & { post: PostNotificationInput; dayLabel: string }) {
+  const postUrl = `${appUrl}/posts/${post.slug}`;
+  const subject = `CG Signal · ${post.title}`;
+  const heading = "New signal published.";
+  // Plain-text fallback for clients that don't render HTML.
+  const text = `[CG SIGNAL // ${dayLabel}]
+
+${heading}
+New signal from ${post.authorName}.
+
+${post.title}
+
+${post.excerpt ?? ""}
+
+${post.firstParagraph ?? ""}
+
+Read it: ${postUrl}
+
+—
+
+Unsubscribe: ${unsubscribeUrl}`;
+
+  // Cover row — either the real cover image with a max-height fallback, or a
+  // soft brand block. Email clients vary wildly on background-images, so we
+  // pin to an `<img>` with a fixed height; the placeholder is just a coloured
+  // table cell.
+  const coverRow = post.coverUrl
+    ? `<tr>
+        <td style="padding:0;">
+          <a href="${esc(postUrl)}" style="display:block;text-decoration:none;">
+            <img src="${esc(post.coverUrl)}" alt="${esc(post.title)}"
+              style="display:block;width:100%;height:auto;max-height:320px;object-fit:cover;border-radius:10px;border:1px solid #e5e7eb;" />
+          </a>
+        </td>
+      </tr>`
+    : `<tr>
+        <td style="padding:0;">
+          <a href="${esc(postUrl)}" style="display:block;text-decoration:none;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#0b0d12;border-radius:10px;border:1px solid #1f2330;">
+              <tr><td style="height:200px;text-align:center;color:#f5f1e8;font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;">
+                CG · Signal · New transmission
+              </td></tr>
+            </table>
+          </a>
+        </td>
+      </tr>`;
+
+  return {
+    subject,
+    text,
+    html: shell(
+      `
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+          <tr>
+            <td style="padding-bottom:18px;border-bottom:1px solid #e5e7eb;">
+              ${tickerStrip([`DAY · ${dayLabel}`, "SIGNAL FEED ACTIVE", "TRANSMISSION INBOUND"])}
+            </td>
+          </tr>
+
+          ${coverRow}
+
+          <tr>
+            <td style="padding-top:18px;">
+              <div style="font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:#ff5a1f;">
+                New signal from ${esc(post.authorName)}
+              </div>
+              <h1 style="margin:8px 0 12px;font-size:30px;line-height:1.1;font-family:Georgia,serif;letter-spacing:-0.02em;color:#111827;">
+                ${esc(post.title)}
+              </h1>
+              ${
+                post.excerpt
+                  ? `<p style="margin:0 0 16px;font-size:16px;line-height:1.55;color:#374151;">${esc(post.excerpt)}</p>`
+                  : ""
+              }
+              ${
+                post.firstParagraph
+                  ? `<p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#4b5563;">${esc(post.firstParagraph)}</p>`
+                  : ""
+              }
+              <div style="margin:8px 0 12px;">
+                ${primaryButton("Read more →", postUrl)}
+              </div>
+              <div style="margin-top:8px;font-family:'Space Mono','SF Mono','Menlo',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:#6b7280;">
+                ${esc(post.authorName)} · ${post.readTimeMinutes} min read
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top:24px;border-top:1px solid #e5e7eb;">
               ${asciiSignoff()}
             </td>
           </tr>

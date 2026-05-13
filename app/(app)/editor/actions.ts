@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/auth/guards";
 import { slugify, withSuffix } from "@/lib/utils/slugs";
 import { weekStartISO } from "@/lib/utils/dates";
 import { readTimeFromHtml } from "@/lib/utils/read-time";
+import { normalizePostHtml, normalizePostText } from "@/lib/utils/normalize-text";
 import { sanitizeHtml } from "@/lib/editor/sanitize";
 import { publicEnv } from "@/lib/env";
 import { WEEKLY_TEMPLATE } from "@/lib/editor/template";
@@ -89,9 +90,13 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
   }
   const data = parsed.data;
   const supabase = createSupabaseServerClient();
-  const html = sanitizeHtml(data.content_html ?? "");
+  // Normalise em/en dashes BEFORE sanitisation — body, summary, and title all
+  // get the same treatment so feed cards, OG metadata, and the in-page render
+  // are consistent. URL text inside <a> anchors is preserved by the HTML walker.
+  const html = sanitizeHtml(normalizePostHtml(data.content_html ?? ""));
   const readTime = readTimeFromHtml(html);
-  const trimmedTitle = data.title.trim();
+  const trimmedTitle = normalizePostText(data.title.trim());
+  const normalizedExcerpt = data.excerpt ? normalizePostText(data.excerpt.trim()) : null;
 
   // Title is required for anything beyond a draft. Drafts may save empty so
   // the autosave doesn't keep failing while the author is still typing.
@@ -218,7 +223,7 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
       // stays valid; the schema column is NOT NULL.
       title: trimmedTitle || existingTitle || "Untitled draft",
       slug,
-      excerpt: data.excerpt ?? null,
+      excerpt: normalizedExcerpt,
       content_json: data.content_json,
       content_html: html,
       status: desiredStatus,
@@ -273,7 +278,7 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
       author_id: userId,
       title: titleForInsert,
       slug,
-      excerpt: data.excerpt ?? null,
+      excerpt: normalizedExcerpt,
       content_json: data.content_json,
       content_html: html,
       status: desiredStatus,
@@ -346,6 +351,71 @@ export async function createDraftFromTemplate(): Promise<SavePostResult> {
     content_html: "",
     status: "draft",
   });
+}
+
+/**
+ * Author-callable tag creator. The existing `createTag` in admin/actions.ts
+ * is gated to managers because the underlying RLS policy is `tags_manager`.
+ * Authors writing a post often want to add a fresh tag inline without an
+ * admin handoff — we bypass RLS via the service client AFTER verifying the
+ * caller is an author/manager. The resulting row is identical to one
+ * created via the admin UI.
+ */
+const TagInputSchema = z.object({
+  name: z.string().min(1, "Tag name is required").max(30, "Tag name max 30 chars"),
+});
+
+export interface CreateTagResult {
+  ok: boolean;
+  tag?: { id: string; name: string; slug: string };
+  error?: string;
+}
+
+export async function createTagAsAuthor(input: {
+  name: string;
+}): Promise<CreateTagResult> {
+  const parsed = TagInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+  const { profile } = await requireSession();
+  if (profile.role !== "author" && profile.role !== "manager") {
+    return { ok: false, error: "You don't have permission to add tags." };
+  }
+  const name = parsed.data.name.trim();
+  const slug = slugify(name);
+  if (!slug) {
+    return { ok: false, error: "Tag name must include at least one letter or number." };
+  }
+
+  const service = createSupabaseServiceClient();
+
+  // Friendly duplicate handling — return the existing row when slug or name
+  // already exists so the editor can select it without a second round-trip.
+  const { data: existing } = await service
+    .from("tags")
+    .select("id, name, slug")
+    .or(`slug.eq.${slug},name.eq.${name}`)
+    .limit(1)
+    .maybeSingle();
+  if (existing) {
+    return {
+      ok: true,
+      tag: existing as { id: string; name: string; slug: string },
+    };
+  }
+
+  const { data: inserted, error } = await service
+    .from("tags")
+    .insert({ name, slug })
+    .select("id, name, slug")
+    .single();
+  if (error || !inserted) {
+    return { ok: false, error: error?.message ?? "Could not create tag." };
+  }
+  revalidatePath("/admin/tags");
+  revalidatePath("/");
+  return { ok: true, tag: inserted as { id: string; name: string; slug: string } };
 }
 
 /**

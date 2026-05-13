@@ -59,7 +59,12 @@ export function EditorToolbar({ editor, onInsertImage, onInsertVideo, onInsertAu
   };
 
   return (
-    <div className="sticky top-14 z-20 -mx-px flex max-w-full flex-wrap items-center gap-1 overflow-x-auto border-b bg-background/95 p-2 backdrop-blur">
+    // Sticks just below the 64px-tall TopNav (`h-16`) so the formatting
+    // controls stay reachable while writing a long post. Z-index sits below
+    // the nav (`z-40`) but above the editor body. On narrow viewports the
+    // row wraps; if it can't wrap (toolbar inside a flex parent that won't
+    // shrink) it falls back to horizontal scroll so no buttons clip.
+    <div className="sticky top-16 z-30 -mx-px flex max-w-full flex-wrap items-center gap-1 overflow-x-auto border-b bg-background/95 p-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
       <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Bold">
         <Bold className="h-4 w-4" />
       </ToolbarButton>

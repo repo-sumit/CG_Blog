@@ -22,7 +22,12 @@ export function classifyMime(mime: string): MediaType | null {
 export interface ValidateFileInput {
   size: number;
   mime: string;
-  maxBytes: number;
+  /**
+   * Either a single byte cap that applies to everything (legacy) or a
+   * per-media-type map. The map form lets us raise the video cap without
+   * relaxing image / audio limits.
+   */
+  maxBytes: number | Partial<Record<MediaType, number>>;
 }
 
 export interface ValidateFileResult {
@@ -36,8 +41,12 @@ export function validateFile({ size, mime, maxBytes }: ValidateFileInput): Valid
   if (!mediaType) {
     return { ok: false, error: `Unsupported file type: ${mime || "unknown"}` };
   }
-  if (size > maxBytes) {
-    const mb = (maxBytes / (1024 * 1024)).toFixed(0);
+  const effectiveMax =
+    typeof maxBytes === "number"
+      ? maxBytes
+      : maxBytes[mediaType] ?? maxBytes.image ?? 50 * 1024 * 1024;
+  if (size > effectiveMax) {
+    const mb = (effectiveMax / (1024 * 1024)).toFixed(0);
     return { ok: false, error: `File is too large. Max ${mb} MB.` };
   }
   if (size <= 0) {

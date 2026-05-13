@@ -48,19 +48,27 @@ export function ContributorCard({ stat }: { stat: ContributorStats }) {
         </Badge>
       </header>
 
-      {/* Topics */}
-      {topics.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {topics.map((t) => (
+      {/* Topics — always render the slot (with an empty-state hint) so the
+          divider below sits at the same y-offset on every card. Previously
+          cards with no topics had the divider hugging the header, creating
+          the "line through the content" look in the screenshots. */}
+      <div className="mt-3 flex min-h-[1.5rem] flex-wrap gap-1.5">
+        {topics.length > 0 ? (
+          topics.map((t) => (
             <Badge key={t} variant="secondary" className="max-w-full">
               {t}
             </Badge>
-          ))}
-        </div>
-      )}
+          ))
+        ) : (
+          <span className="text-[10px] uppercase tracking-wider text-portal-text-soft">
+            No topics yet
+          </span>
+        )}
+      </div>
 
-      {/* Stats / latest post */}
-      <div className="mt-auto border-t border-portal-border-soft pt-4">
+      {/* Divider + posts block. Fixed margins (no `mt-auto`) so the rhythm
+          stays identical from card to card; varying card heights are fine. */}
+      <div className="mt-5 border-t border-portal-border-soft pt-4">
         <div className="flex items-baseline gap-2">
           <span className="font-hero text-2xl font-bold tracking-tighter text-portal-text">
             {stat.postCount}

@@ -32,7 +32,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing file" }, { status: 400 });
   }
 
-  const maxBytes = publicEnv.maxUploadMb * 1024 * 1024;
+  // Per-media-type byte cap. Images / audio / docs stay at the standard
+  // limit; video gets the larger `maxVideoUploadMb` since 50 MB was clipping
+  // even short screen recordings.
+  const MB = 1024 * 1024;
+  const maxBytes = {
+    image: publicEnv.maxUploadMb * MB,
+    video: publicEnv.maxVideoUploadMb * MB,
+    audio: publicEnv.maxUploadMb * MB,
+    document: publicEnv.maxUploadMb * MB,
+  };
   const v = validateFile({ size: file.size, mime: file.type, maxBytes });
   if (!v.ok || !v.mediaType) {
     return NextResponse.json({ error: v.error ?? "Invalid file" }, { status: 400 });

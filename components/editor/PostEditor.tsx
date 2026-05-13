@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
 import { toast } from "sonner";
 import {
   Eye, Save, FileCheck2, Loader2, Sparkles, Send,
   Image as ImageIcon, Video, Music, Link as LinkIcon,
   Upload, X, Check, Calendar, RotateCcw,
+  Bold, Italic, Underline as UnderlineIcon, Highlighter,
 } from "lucide-react";
 import { editorExtensions } from "@/lib/editor/extensions";
 import { sanitizePastedHtml } from "@/lib/editor/paste-sanitize";
@@ -19,7 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EditorToolbar } from "@/components/editor/EditorToolbar";
 import { SchedulePostModal } from "@/components/editor/SchedulePostModal";
-import { savePost } from "@/app/(app)/editor/actions";
+import { createTagAsAuthor, savePost } from "@/app/(app)/editor/actions";
 import { wordCount } from "@/lib/utils/read-time";
 import { formatScheduledLabel } from "@/lib/utils/dates";
 import { track } from "@/lib/analytics/track";
@@ -81,6 +82,14 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
 
   const titleEmpty = title.trim().length === 0;
   const titleInvalid = titleEmpty && titleTouched;
+
+  // Local copy of the tag catalogue so we can append a freshly-created tag
+  // without remounting the editor. Seeded from the server prop.
+  const [tagOptions, setTagOptions] = useState(tags);
+  const [newTagInput, setNewTagInput] = useState("");
+  const [creatingTag, setCreatingTag] = useState(false);
+  const MAX_TAGS_PER_POST = 10;
+  const MAX_TAG_LENGTH = 30;
 
   const editor = useEditor({
     extensions: editorExtensions(),
@@ -241,7 +250,13 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
   const handleFileInsert = useCallback(
     (kind: "image" | "video" | "audio") => async (file: File) => {
       if (!editor) return;
-      const maxBytes = publicEnv.maxUploadMb * 1024 * 1024;
+      const MB = 1024 * 1024;
+      const maxBytes = {
+        image: publicEnv.maxUploadMb * MB,
+        video: publicEnv.maxVideoUploadMb * MB,
+        audio: publicEnv.maxUploadMb * MB,
+        document: publicEnv.maxUploadMb * MB,
+      };
       const v = validateFile({ size: file.size, mime: file.type, maxBytes });
       if (!v.ok) {
         toast.error(v.error || "File rejected.");
@@ -390,6 +405,54 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
     () => (requireReview && role === "author" ? "Submit for review" : "Post Now"),
     [requireReview, role],
   );
+
+  // Inline tag creation. Trims, validates, asks the server, and immediately
+  // selects the new tag for this post. Server returns the existing row when
+  // the name / slug already exists so we don't get duplicates.
+  const handleCreateTag = useCallback(async () => {
+    const raw = newTagInput.trim();
+    if (!raw) return;
+    if (raw.length > MAX_TAG_LENGTH) {
+      toast.error(`Tag must be ${MAX_TAG_LENGTH} characters or less.`);
+      return;
+    }
+    if (selectedTagIds.length >= MAX_TAGS_PER_POST) {
+      toast.error(`Up to ${MAX_TAGS_PER_POST} tags per post.`);
+      return;
+    }
+    // Local case-insensitive dedupe: if a tag with the same display name
+    // already exists in our local options, just select it.
+    const existingLocal = tagOptions.find(
+      (t) => t.name.toLowerCase() === raw.toLowerCase(),
+    );
+    if (existingLocal) {
+      if (!selectedTagIds.includes(existingLocal.id)) {
+        setSelectedTagIds((prev) => [...prev, existingLocal.id]);
+        setSaveState("unsaved");
+      }
+      setNewTagInput("");
+      return;
+    }
+    setCreatingTag(true);
+    try {
+      const res = await createTagAsAuthor({ name: raw });
+      if (!res.ok || !res.tag) {
+        toast.error(res.error || "Could not create tag.");
+        return;
+      }
+      const created = res.tag;
+      setTagOptions((prev) =>
+        prev.some((t) => t.id === created.id) ? prev : [...prev, created],
+      );
+      setSelectedTagIds((prev) =>
+        prev.includes(created.id) ? prev : [...prev, created.id],
+      );
+      setSaveState("unsaved");
+      setNewTagInput("");
+    } finally {
+      setCreatingTag(false);
+    }
+  }, [newTagInput, selectedTagIds, tagOptions]);
 
   // Thumbnail picker handlers.
   const openCoverBrowser = useCallback(async () => {
@@ -599,7 +662,73 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
                 <div dangerouslySetInnerHTML={{ __html: editor?.getHTML() ?? "" }} />
               </div>
             ) : (
-              <EditorContent editor={editor} />
+              <>
+                <EditorContent editor={editor} />
+                {/* Floating selection toolbar — shows on any text selection.
+                    Hidden automatically when the selection collapses; tippy
+                    handles positioning + scroll/outside-click hiding for us.
+                    Disabled in previewMode by the parent ternary. */}
+                {editor && (
+                  <BubbleMenu
+                    editor={editor}
+                    tippyOptions={{ duration: 100, placement: "top" }}
+                    className="bubble-menu"
+                  >
+                    <BubbleMenuButton
+                      onClick={() => editor.chain().focus().toggleBold().run()}
+                      active={editor.isActive("bold")}
+                      label="Bold"
+                    >
+                      <Bold className="h-3.5 w-3.5" />
+                    </BubbleMenuButton>
+                    <BubbleMenuButton
+                      onClick={() => editor.chain().focus().toggleItalic().run()}
+                      active={editor.isActive("italic")}
+                      label="Italic"
+                    >
+                      <Italic className="h-3.5 w-3.5" />
+                    </BubbleMenuButton>
+                    <BubbleMenuButton
+                      onClick={() => editor.chain().focus().toggleUnderline().run()}
+                      active={editor.isActive("underline")}
+                      label="Underline"
+                    >
+                      <UnderlineIcon className="h-3.5 w-3.5" />
+                    </BubbleMenuButton>
+                    <BubbleMenuButton
+                      onClick={() =>
+                        editor.chain().focus().toggleHighlight({ color: "#fef08a" }).run()
+                      }
+                      active={editor.isActive("highlight")}
+                      label="Highlight"
+                    >
+                      <Highlighter className="h-3.5 w-3.5" />
+                    </BubbleMenuButton>
+                    <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+                    <BubbleMenuButton
+                      onClick={() => {
+                        const prev = editor.getAttributes("link").href as string | undefined;
+                        const url = window.prompt("Link URL", prev ?? "https://");
+                        if (url === null) return;
+                        if (url === "") {
+                          editor.chain().focus().extendMarkRange("link").unsetLink().run();
+                          return;
+                        }
+                        editor
+                          .chain()
+                          .focus()
+                          .extendMarkRange("link")
+                          .setLink({ href: url })
+                          .run();
+                      }}
+                      active={editor.isActive("link")}
+                      label="Link"
+                    >
+                      <LinkIcon className="h-3.5 w-3.5" />
+                    </BubbleMenuButton>
+                  </BubbleMenu>
+                )}
+              </>
             )}
             <div className="flex items-center justify-between border-t bg-muted/30 px-5 py-2 text-xs text-muted-foreground">
               <div>{words} words · ~{readMin} min read</div>
@@ -812,18 +941,22 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
             <CardHeader>
               <CardTitle className="text-sm">Tags</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm">
+            <CardContent className="space-y-3 text-sm">
               <div className="flex flex-wrap gap-1.5">
-                {tags.length === 0 ? (
+                {tagOptions.length === 0 ? (
                   <p className="text-xs text-portal-text-muted">No tags yet.</p>
                 ) : (
-                  tags.map((t) => {
+                  tagOptions.map((t) => {
                     const active = selectedTagIds.includes(t.id);
                     return (
                       <button
                         type="button"
                         key={t.id}
                         onClick={() => {
+                          if (!active && selectedTagIds.length >= MAX_TAGS_PER_POST) {
+                            toast.error(`Up to ${MAX_TAGS_PER_POST} tags per post.`);
+                            return;
+                          }
                           setSelectedTagIds((prev) =>
                             active ? prev.filter((x) => x !== t.id) : [...prev, t.id],
                           );
@@ -842,6 +975,38 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
                   })
                 )}
               </div>
+
+              {/* Inline tag creator. Enter to add — server dedupes by slug. */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newTagInput}
+                  onChange={(e) => setNewTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handleCreateTag();
+                    }
+                  }}
+                  placeholder="Add a tag…"
+                  maxLength={MAX_TAG_LENGTH}
+                  disabled={creatingTag}
+                  aria-label="Add a tag"
+                  className="h-8 flex-1 min-w-0 rounded-md border border-portal-border-muted bg-portal-panel-soft px-2 font-ui text-xs text-portal-text placeholder:text-portal-text-soft focus:border-portal-blue focus:outline-none focus:shadow-[0_0_0_3px_rgba(79,140,255,0.18)]"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handleCreateTag()}
+                  disabled={creatingTag || newTagInput.trim().length === 0}
+                >
+                  {creatingTag ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add"}
+                </Button>
+              </div>
+              <p className="text-[10px] uppercase tracking-wider text-portal-text-muted">
+                {selectedTagIds.length} / {MAX_TAGS_PER_POST} selected · max {MAX_TAG_LENGTH} chars per tag
+              </p>
             </CardContent>
           </Card>
 
@@ -892,4 +1057,34 @@ function pickFile(accept: string, onPick: (file: File) => void) {
     if (file) onPick(file);
   };
   input.click();
+}
+
+/** Single icon button inside the floating selection bubble. */
+function BubbleMenuButton({
+  onClick,
+  active,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  active?: boolean;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      className={cn(
+        "inline-flex h-7 w-7 items-center justify-center rounded-md",
+        "text-muted-foreground hover:bg-secondary hover:text-foreground",
+        active && "bg-secondary text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
 }

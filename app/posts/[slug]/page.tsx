@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Clock, Eye } from "lucide-react";
+import { publicEnv } from "@/lib/env";
 import {
   getPublicPostBySlug,
   listPublicPosts,
@@ -28,10 +29,41 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const post = await getPublicPostBySlug(params.slug);
   if (!post) return { title: "Not found" };
+
+  // Build absolute URLs — WhatsApp / Slack / LinkedIn crawlers reject
+  // relative paths in `og:image` / `og:url`. We rely on NEXT_PUBLIC_APP_URL
+  // being set to the canonical production host; the deployment guide already
+  // requires that.
+  const base = (publicEnv.appUrl || "").replace(/\/$/, "");
+  const url = `${base}/posts/${post.slug}`;
+  // Default OG image is the brand mark — bigger / square. Real cover, when
+  // present, takes precedence and shows as `summary_large_image`.
+  const defaultImage = `${base}/cg.png`;
+  const ogImage = post.coverUrl ?? defaultImage;
+
+  const description = post.excerpt ?? `New signal from ${post.author?.full_name ?? "team Dhurandhar"}`;
+  const authorName = post.author?.full_name ?? post.author?.email ?? undefined;
+
   return {
     title: post.title,
-    description: post.excerpt ?? undefined,
-    openGraph: { title: post.title, description: post.excerpt ?? undefined, type: "article" },
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: post.title,
+      description,
+      url,
+      type: "article",
+      siteName: "CG Signal",
+      images: [{ url: ogImage, alt: post.title }],
+      publishedTime: post.published_at ?? undefined,
+      authors: authorName ? [authorName] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description,
+      images: [ogImage],
+    },
   };
 }
 
