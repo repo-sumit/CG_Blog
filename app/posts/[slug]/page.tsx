@@ -31,15 +31,20 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   if (!post) return { title: "Not found" };
 
   // Build absolute URLs — WhatsApp / Slack / LinkedIn crawlers reject
-  // relative paths in `og:image` / `og:url`. We rely on NEXT_PUBLIC_APP_URL
-  // being set to the canonical production host; the deployment guide already
-  // requires that.
+  // relative paths in `og:image` / `og:url`. NEXT_PUBLIC_APP_URL must be set
+  // to the canonical production host.
   const base = (publicEnv.appUrl || "").replace(/\/$/, "");
   const url = `${base}/posts/${post.slug}`;
-  // Default OG image is the brand mark — bigger / square. Real cover, when
-  // present, takes precedence and shows as `summary_large_image`.
-  const defaultImage = `${base}/cg.png`;
-  const ogImage = post.coverUrl ?? defaultImage;
+
+  // OG image strategy: point at the stable `/api/og-image/[slug]` proxy
+  // route. The proxy itself 302s to a fresh Supabase signed URL on each
+  // request (or to /og-default.png when no cover is set). Crawlers cache
+  // the IMAGE BYTES at their side after the redirect resolves, so subsequent
+  // refetches stay valid forever — no signed-URL TTL surprises like the
+  // previous direct-Supabase setup had.
+  const ogImage = post.coverUrl
+    ? `${base}/api/og-image/${encodeURIComponent(post.slug)}`
+    : `${base}/og-default.png`;
 
   const description = post.excerpt ?? `New signal from ${post.author?.full_name ?? "team Dhurandhar"}`;
   const authorName = post.author?.full_name ?? post.author?.email ?? undefined;
@@ -54,7 +59,10 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       url,
       type: "article",
       siteName: "CG Signal",
-      images: [{ url: ogImage, alt: post.title }],
+      // Explicit 1200×630 dimensions — LinkedIn / Slack / Facebook use them
+      // to choose the large-card layout. The proxy serves whatever aspect
+      // the original cover has; the hint is metadata, not a transform.
+      images: [{ url: ogImage, width: 1200, height: 630, alt: post.title }],
       publishedTime: post.published_at ?? undefined,
       authors: authorName ? [authorName] : undefined,
     },

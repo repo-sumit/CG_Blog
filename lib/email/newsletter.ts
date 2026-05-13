@@ -1,5 +1,4 @@
 import "server-only";
-import { format } from "date-fns";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { publicEnv } from "@/lib/env";
 import { sendEmail } from "@/lib/email/resend";
@@ -13,9 +12,6 @@ interface NewsletterResult {
   failed?: number;
   error?: string;
 }
-
-const COVER_BUCKET = "blog-media";
-const COVER_SIGNED_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days — long enough for inbox retention.
 
 /**
  * Extracts the first paragraph of plain text from a Tiptap-generated HTML
@@ -129,35 +125,20 @@ export async function sendPerPostNewsletter(postId: string): Promise<NewsletterR
   console.log(`[newsletter:${postId}] starting · ${subscribers.length} subscribers`);
   if (subscribers.length === 0) return { ok: true, skipped: "no_subscribers" };
 
-  // Resolve a public cover URL for the email. Long-lived signed URL because
-  // emails sit in inboxes and image hosts get hit days later. If the post
-  // has no cover or the media row is missing, `coverUrl` stays null and the
-  // template renders a brand-coloured placeholder block.
-  let coverUrl: string | null = null;
-  if (post.cover_media_id) {
-    const { data: mediaRow } = await service
-      .from("media_assets")
-      .select("storage_path")
-      .eq("id", post.cover_media_id)
-      .maybeSingle();
-    const path = (mediaRow as { storage_path?: string | null } | null)?.storage_path;
-    if (path) {
-      const { data: signed } = await service.storage
-        .from(COVER_BUCKET)
-        .createSignedUrl(path, COVER_SIGNED_TTL_SECONDS);
-      coverUrl = signed?.signedUrl ?? null;
-    }
-  }
+  // Cover URL — point at the public /api/og-image proxy. The proxy stays at
+  // a stable URL forever; on each crawler / email-client fetch it 302s to a
+  // fresh Supabase signed URL behind the scenes. Email clients cache the
+  // image bytes after first load, so subsequent opens read from their cache
+  // and never hit a stale TTL. When the post has no cover, the proxy itself
+  // 302s to `/og-default.png` so we don't have to branch here.
+  const coverUrl = post.cover_media_id
+    ? `${publicEnv.appUrl}/api/og-image/${encodeURIComponent(post.slug)}`
+    : `${publicEnv.appUrl}/og-default.png`;
 
   // Author display name. Supabase types FK joins as arrays even when singleton.
   const a = Array.isArray(post.author) ? post.author[0] : post.author;
   const authorHandle = a?.email?.split("@")[0] ?? "ConveGenius team";
   const authorName = a?.full_name?.trim() || authorHandle;
-
-  const dayLabel = format(
-    post.published_at ? new Date(post.published_at) : new Date(),
-    "MMM d, yyyy",
-  ).toUpperCase();
 
   const firstParagraph = extractFirstParagraph(post.content_html ?? "");
 
@@ -169,7 +150,6 @@ export async function sendPerPostNewsletter(postId: string): Promise<NewsletterR
     const tpl = postNotificationTemplate({
       appUrl: publicEnv.appUrl,
       unsubscribeUrl,
-      dayLabel,
       post: {
         title: post.title,
         slug: post.slug,

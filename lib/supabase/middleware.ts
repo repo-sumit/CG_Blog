@@ -13,9 +13,12 @@ const PUBLIC_PATHS = [
   "/unauthorized",
   "/api/auth/callback",
   "/api/media/file",     // signed-URL re-sign: needed for public media playback
+  "/api/og-image",       // stable cover proxy for OG / email crawlers
   "/api/subscribe",      // newsletter signup + unsubscribe (anonymous)
   "/favicon.ico",
   "/google.svg",
+  "/cg.png",
+  "/og-default.png",
 ];
 
 // Exact-match list for paths where startsWith would over-match (e.g. "/" would
