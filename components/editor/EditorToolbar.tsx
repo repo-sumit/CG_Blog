@@ -59,7 +59,7 @@ export function EditorToolbar({ editor, onInsertImage, onInsertVideo, onInsertAu
   };
 
   return (
-    <div className="sticky top-14 z-20 flex flex-wrap items-center gap-1 border-b bg-background/95 p-2 backdrop-blur">
+    <div className="sticky top-14 z-20 -mx-px flex max-w-full flex-wrap items-center gap-1 overflow-x-auto border-b bg-background/95 p-2 backdrop-blur">
       <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Bold">
         <Bold className="h-4 w-4" />
       </ToolbarButton>

@@ -8,6 +8,11 @@ export const publicEnv = {
   requireManagerReview:
     (process.env.NEXT_PUBLIC_REQUIRE_MANAGER_REVIEW ?? "false").toLowerCase() === "true",
   maxUploadMb: Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB ?? "50"),
+  // Demo-only: shows a blue "Demo: N watching" counter in the public nav.
+  // Disabled unless explicitly opted-in so production deploys never ship the
+  // simulated counter by accident.
+  enableDemoWatchingCounter:
+    (process.env.NEXT_PUBLIC_ENABLE_DEMO_WATCHING_COUNTER ?? "false").toLowerCase() === "true",
 } as const;
 
 function splitEmails(raw: string | undefined): string[] {

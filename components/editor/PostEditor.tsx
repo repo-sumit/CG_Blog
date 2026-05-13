@@ -6,21 +6,22 @@ import Link from "next/link";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { toast } from "sonner";
 import {
-  Eye, Save, Send, FileCheck2, Loader2, Sparkles,
+  Eye, Save, FileCheck2, Loader2, Sparkles, Send,
   Image as ImageIcon, Video, Music, Link as LinkIcon,
-  Upload, X, Check,
+  Upload, X, Check, Calendar, RotateCcw,
 } from "lucide-react";
 import { editorExtensions } from "@/lib/editor/extensions";
+import { sanitizePastedHtml } from "@/lib/editor/paste-sanitize";
 import { WEEKLY_TEMPLATE } from "@/lib/editor/template";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Select } from "@/components/ui/Select";
 import { EditorToolbar } from "@/components/editor/EditorToolbar";
+import { SchedulePostModal } from "@/components/editor/SchedulePostModal";
 import { savePost } from "@/app/(app)/editor/actions";
 import { wordCount } from "@/lib/utils/read-time";
-import { formatScheduledLabel, weekdayLabel } from "@/lib/utils/dates";
+import { formatScheduledLabel } from "@/lib/utils/dates";
 import { parseEmbedUrl } from "@/lib/utils/embeds";
 import { validateFile } from "@/lib/utils/file-validation";
 import { publicEnv } from "@/lib/env";
@@ -47,7 +48,9 @@ interface PostImage {
   title?: string | null;
 }
 
-const AUTOSAVE_MS = 4000;
+// Autosave fires 15s after the user stops typing — long enough that we're not
+// thrashing Supabase, short enough that crashes don't lose meaningful work.
+const AUTOSAVE_MS = 15_000;
 
 export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
   const router = useRouter();
@@ -61,14 +64,12 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
   const [excerpt, setExcerpt] = useState(initialPost?.excerpt ?? "");
   const [status, setStatus] = useState<PostStatus>((initialPost?.status as PostStatus) ?? "draft");
   const [scheduledFor, setScheduledFor] = useState<string | null>(initialPost?.scheduled_for ?? null);
-  const [assignedWeekday, setAssignedWeekday] = useState<number | null>(
-    initialPost?.assigned_weekday ?? null,
-  );
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialPost?.tag_ids ?? []);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [busyAction, setBusyAction] = useState<null | "draft" | "schedule" | "now" | "revert">(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [words, setWords] = useState(() => wordCount((initialPost?.excerpt ?? "") + " "));
   const [coverMediaId, setCoverMediaId] = useState<string | null>(initialPost?.cover?.id ?? null);
   const [coverUrl, setCoverUrl] = useState<string | null>(initialPost?.cover?.url ?? null);
@@ -83,7 +84,14 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
   const editor = useEditor({
     extensions: editorExtensions(),
     content: (initialPost?.content_json as object) ?? { type: "doc", content: [{ type: "paragraph" }] },
-    editorProps: { attributes: { class: "prose max-w-none focus:outline-none" } },
+    editorProps: {
+      attributes: { class: "prose max-w-none focus:outline-none" },
+      // Run Google-Docs / Word HTML through the paste sanitizer BEFORE
+      // ProseMirror parses it into the schema. Anything we can't keep (vendor
+      // classes, page layouts, oversized fonts) is dropped here so the rich
+      // formatting that survives feels native to the CG SIGNAL editor.
+      transformPastedHTML: (html: string) => sanitizePastedHtml(html),
+    },
     immediatelyRender: false,
   });
 
@@ -115,15 +123,18 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSave = useCallback(
-    async (overrideStatus?: PostStatus) => {
+    async (
+      overrideStatus?: PostStatus,
+      opts: { scheduledFor?: string | null } = {},
+    ) => {
       if (!editor) return null;
-      // Title is required for anything beyond a draft. Drafts may save with
-      // an empty title (autosave keeps running while the user is still typing
-      // a title or the body).
-      const promotingBeyondDraft = (overrideStatus ?? status) !== "draft";
+      // Title is required for anything beyond a draft. Drafts may save with an
+      // empty title — autosave keeps running while the user is still typing.
+      const nextStatus = overrideStatus ?? status;
+      const promotingBeyondDraft = nextStatus !== "draft";
       if (promotingBeyondDraft && !title.trim()) {
         setTitleTouched(true);
-        toast.error("Add a title before publishing.");
+        toast.error("Please add a title before saving.");
         return null;
       }
       dirtyDuringSave.current = false;
@@ -136,8 +147,8 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
         excerpt: excerpt?.trim() || null,
         content_json: json,
         content_html: html,
-        status: overrideStatus ?? status,
-        assigned_weekday: assignedWeekday,
+        status: nextStatus,
+        scheduled_for: opts.scheduledFor ?? (nextStatus === "scheduled" ? scheduledFor : null),
         cover_media_id: coverMediaId,
         tag_ids: selectedTagIds,
       });
@@ -147,19 +158,18 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
         return null;
       }
       setPostId(res.id);
-      setStatus((res.status as PostStatus) ?? status);
-      if (res.scheduledFor !== undefined) setScheduledFor(res.scheduledFor);
-      // If the user typed during the await, keep state "unsaved" so the
-      // autosave effect schedules another save.
+      setStatus((res.status as PostStatus) ?? nextStatus);
+      // Reconcile scheduled_for with the server's view: explicit value when
+      // status==='scheduled', null otherwise (e.g. on Post Now or revert).
+      setScheduledFor(res.scheduledFor ?? null);
       setSaveState(dirtyDuringSave.current ? "unsaved" : "saved");
       setLastSavedAt(new Date());
-      // If we just created the post, switch the URL to /editor/[id] without reloading.
       if (isNew && res.id) {
         window.history.replaceState(null, "", `/editor/${res.id}`);
       }
       return res;
     },
-    [editor, title, excerpt, postId, status, assignedWeekday, coverMediaId, selectedTagIds, isNew],
+    [editor, title, excerpt, postId, status, scheduledFor, coverMediaId, selectedTagIds, isNew],
   );
 
   // Autosave loop (debounced via timeout).
@@ -265,31 +275,66 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
     setSaveState("unsaved");
   }, [editor]);
 
-  const handlePublish = async () => {
-    setSubmitting(true);
+  const handleSaveDraft = useCallback(async () => {
+    setBusyAction("draft");
+    const res = await handleSave("draft");
+    setBusyAction(null);
+    if (res?.ok) toast.success("Draft saved.");
+  }, [handleSave]);
+
+  const handlePostNow = useCallback(async () => {
+    if (!title.trim()) {
+      setTitleTouched(true);
+      toast.error("Please add a title before saving.");
+      return;
+    }
+    setBusyAction("now");
     const requested: PostStatus = requireReview && role === "author" ? "submitted" : "published";
-    const res = await handleSave(requested);
-    setSubmitting(false);
+    const res = await handleSave(requested, { scheduledFor: null });
+    setBusyAction(null);
     if (!res?.ok) return;
     const final = (res.status as PostStatus) ?? requested;
-    if (final === "scheduled" && res.scheduledFor) {
-      toast.success(`Scheduled for ${formatScheduledLabel(res.scheduledFor)}.`);
-      router.push("/me/posts");
-    } else if (final === "submitted") {
+    if (final === "submitted") {
       toast.success("Submitted for review.");
       router.push("/me/posts");
     } else if (final === "published" && res.slug) {
-      toast.success("Published.");
+      toast.success("Post published successfully.");
       router.push(`/posts/${res.slug}`);
     } else {
       router.push("/me/posts");
     }
-  };
+  }, [handleSave, requireReview, role, router, title]);
 
-  const publishLabel = useMemo(() => {
-    if (requireReview && role === "author") return "Submit for review";
-    return "Publish";
-  }, [requireReview, role]);
+  const handleConfirmSchedule = useCallback(
+    async (iso: string) => {
+      if (!title.trim()) {
+        setTitleTouched(true);
+        toast.error("Please add a title before saving.");
+        return;
+      }
+      setBusyAction("schedule");
+      const res = await handleSave("scheduled", { scheduledFor: iso });
+      setBusyAction(null);
+      if (!res?.ok) return;
+      setScheduleModalOpen(false);
+      const slot = res.scheduledFor ?? iso;
+      toast.success(`Scheduled for ${formatScheduledLabel(slot)}.`);
+    },
+    [handleSave, title],
+  );
+
+  const handleRevertToDraft = useCallback(async () => {
+    if (!window.confirm("Move this post back to draft? It will be unpublished/unscheduled.")) return;
+    setBusyAction("revert");
+    const res = await handleSave("draft", { scheduledFor: null });
+    setBusyAction(null);
+    if (res?.ok) toast.success("Reverted to draft.");
+  }, [handleSave]);
+
+  const postNowLabel = useMemo(
+    () => (requireReview && role === "author" ? "Submit for review" : "Post Now"),
+    [requireReview, role],
+  );
 
   // Thumbnail picker handlers.
   const openCoverBrowser = useCallback(async () => {
@@ -360,13 +405,15 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
 
   const readMin = Math.max(1, Math.round(words / 220));
 
+  const anyActionBusy = busyAction !== null;
+
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="mb-4 flex items-center gap-2">
+    <div className="mx-auto w-full max-w-screen-xl px-3 pb-10 pt-4 sm:px-4 sm:pb-12 sm:pt-6">
+      <div className="mb-3 flex flex-wrap items-center gap-2 sm:mb-4">
         <Button asChild variant="ghost" size="sm">
           <Link href="/me/posts">← My posts</Link>
         </Button>
-        <span className="text-xs text-muted-foreground ml-auto">
+        <span className="ml-auto text-xs text-muted-foreground" role="status" aria-live="polite">
           {saveState === "saving" && (
             <span className="inline-flex items-center gap-1">
               <Loader2 className="h-3 w-3 animate-spin" /> Saving…
@@ -374,8 +421,10 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
           )}
           {saveState === "saved" && (
             <span className="inline-flex items-center gap-1 text-success">
-              <FileCheck2 className="h-3 w-3" /> Saved{" "}
-              {lastSavedAt && new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(lastSavedAt)}
+              <FileCheck2 className="h-3 w-3" /> Draft saved
+              {lastSavedAt && (
+                <> · {new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(lastSavedAt)}</>
+              )}
             </span>
           )}
           {saveState === "unsaved" && <span className="text-warning">Unsaved changes</span>}
@@ -383,7 +432,51 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+      {/* Publish action bar — horizontal on desktop, full-width stacked on mobile. */}
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3">
+        <Button
+          variant="outline"
+          onClick={handleSaveDraft}
+          disabled={anyActionBusy}
+          className="w-full sm:w-auto sm:flex-1 sm:max-w-[200px]"
+        >
+          {busyAction === "draft" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          Save Draft
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => setScheduleModalOpen(true)}
+          disabled={anyActionBusy || titleEmpty}
+          title={titleEmpty ? "Add a title first" : undefined}
+          className="w-full sm:w-auto sm:flex-1 sm:max-w-[220px]"
+        >
+          {busyAction === "schedule" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Calendar className="h-4 w-4" />
+          )}
+          Schedule Post
+        </Button>
+        <Button
+          onClick={handlePostNow}
+          disabled={anyActionBusy || titleEmpty}
+          title={titleEmpty ? "Add a title first" : undefined}
+          className="w-full sm:w-auto sm:flex-1 sm:max-w-[220px]"
+        >
+          {busyAction === "now" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
+          {postNowLabel}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="overflow-hidden">
           {!previewMode && (
             <>
@@ -397,9 +490,9 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
             </>
           )}
           <CardContent className="p-0">
-            <div className="p-5">
+            <div className="space-y-5 px-4 pt-5 pb-4 sm:px-6 sm:pt-7 sm:pb-5">
               <label className="block">
-                <span className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
+                <span className="mb-2 flex items-center gap-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
                   Title
                   <span aria-hidden className="text-portal-red">*</span>
                   <span className="sr-only"> (required)</span>
@@ -416,8 +509,8 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
                   aria-required="true"
                   aria-invalid={titleInvalid || undefined}
                   className={cn(
-                    "w-full bg-transparent text-3xl font-bold tracking-tight outline-none placeholder:text-muted-foreground",
-                    "border-b-2 pb-1 transition-colors",
+                    "w-full bg-transparent text-2xl font-bold leading-tight tracking-tight outline-none placeholder:text-muted-foreground sm:text-3xl md:text-4xl",
+                    "border-b-2 pb-2 transition-colors",
                     titleInvalid
                       ? "border-portal-red"
                       : "border-portal-border-soft focus:border-portal-blue",
@@ -425,21 +518,26 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
                   maxLength={160}
                 />
                 {titleInvalid && (
-                  <span className="mt-1 block text-[11px] font-medium text-portal-red">
-                    Title is required.
+                  <span className="mt-1.5 block text-[11px] font-medium text-portal-red">
+                    Please add a title before saving.
                   </span>
                 )}
               </label>
-              <Textarea
-                value={excerpt ?? ""}
-                onChange={(e) => {
-                  setExcerpt(e.target.value);
-                  setSaveState("unsaved");
-                }}
-                placeholder="Short summary (used in feed cards and previews)"
-                className="mt-3 min-h-[60px] border-none px-0 text-base resize-none focus-visible:ring-0"
-                maxLength={500}
-              />
+              <label className="block">
+                <span className="mb-2 block text-[10px] uppercase tracking-wider text-portal-text-muted">
+                  Short summary
+                </span>
+                <Textarea
+                  value={excerpt ?? ""}
+                  onChange={(e) => {
+                    setExcerpt(e.target.value);
+                    setSaveState("unsaved");
+                  }}
+                  placeholder="Short summary used in feed cards and previews…"
+                  className="min-h-[64px] resize-y border-2 border-portal-border-soft bg-portal-panel-soft text-sm leading-relaxed"
+                  maxLength={500}
+                />
+              </label>
             </div>
             {previewMode ? (
               <div className="article-body px-5 pb-8">
@@ -461,50 +559,69 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
           </CardContent>
         </Card>
 
-        <aside className="space-y-4">
+        <aside className="space-y-4 min-w-0">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">Status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <div>
-                <Badge variant={
-                  status === "published" ? "success" :
-                  status === "submitted" ? "warning" :
-                  status === "scheduled" ? "default" :
-                  status === "archived" ? "secondary" : "muted"
-                } className="capitalize">{status}</Badge>
-              </div>
+              <Badge variant={
+                status === "published" ? "success" :
+                status === "submitted" ? "warning" :
+                status === "scheduled" ? "default" :
+                status === "archived" ? "secondary" : "muted"
+              } className="capitalize">{status}</Badge>
+
               {status === "scheduled" && scheduledFor && (
-                <div className="rounded-md border border-portal-border-soft bg-portal-panel-soft p-3 text-xs">
-                  <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
-                    Goes live
+                <div className="space-y-3 rounded-md border border-portal-border-soft bg-portal-panel-soft p-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
+                      Scheduled for
+                    </div>
+                    <div className="mt-1 font-ui text-sm text-portal-text">
+                      {formatScheduledLabel(scheduledFor)}
+                    </div>
                   </div>
-                  <div className="mt-1 font-ui text-portal-text">
-                    {formatScheduledLabel(scheduledFor)}
-                  </div>
-                  <div className="mt-1 text-[10px] text-portal-text-muted">
-                    You can keep editing — changes will be visible the moment the slot hits.
+                  <p className="text-[10px] leading-relaxed text-portal-text-muted">
+                    You and collaborators can keep editing until the slot hits — the post stays
+                    private to the team until then.
+                  </p>
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setScheduleModalOpen(true)}
+                      disabled={anyActionBusy}
+                    >
+                      <Calendar className="h-3.5 w-3.5" /> Edit schedule
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handlePostNow}
+                      disabled={anyActionBusy || titleEmpty}
+                    >
+                      {busyAction === "now" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Send className="h-3.5 w-3.5" />
+                      )}
+                      Post now
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleRevertToDraft}
+                      disabled={anyActionBusy}
+                    >
+                      {busyAction === "revert" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      )}
+                      Back to draft
+                    </Button>
                   </div>
                 </div>
-              )}
-              <Button onClick={() => handleSave()} variant="outline" className="w-full">
-                <Save className="mr-2 h-4 w-4" /> Save draft
-              </Button>
-              <Button
-                onClick={handlePublish}
-                disabled={submitting || titleEmpty}
-                title={titleEmpty ? "Add a title first" : undefined}
-                className="w-full"
-              >
-                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                {publishLabel}
-              </Button>
-              {assignedWeekday && !titleEmpty && status !== "scheduled" && (
-                <p className="text-[10px] leading-relaxed text-portal-text-muted">
-                  Publishes on your assigned day ({weekdayLabel(assignedWeekday)}). If that day
-                  hasn't arrived yet, the post will be scheduled and auto-released then.
-                </p>
               )}
             </CardContent>
           </Card>
@@ -638,30 +755,14 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Metadata</CardTitle>
+              <CardTitle className="text-sm">Tags</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-muted-foreground">Assigned day</span>
-                <Select
-                  value={assignedWeekday ?? ""}
-                  onChange={(e) => {
-                    const v = e.target.value === "" ? null : Number(e.target.value);
-                    setAssignedWeekday(v);
-                    setSaveState("unsaved");
-                  }}
-                >
-                  <option value="">Unassigned</option>
-                  {[1, 2, 3, 4, 5].map((d) => (
-                    <option key={d} value={d}>{weekdayLabel(d)}</option>
-                  ))}
-                </Select>
-              </label>
-
-              <div>
-                <span className="mb-1 block text-xs font-medium text-muted-foreground">Tags</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {tags.map((t) => {
+            <CardContent className="text-sm">
+              <div className="flex flex-wrap gap-1.5">
+                {tags.length === 0 ? (
+                  <p className="text-xs text-portal-text-muted">No tags yet.</p>
+                ) : (
+                  tags.map((t) => {
                     const active = selectedTagIds.includes(t.id);
                     return (
                       <button
@@ -683,8 +784,8 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
                         {t.name}
                       </button>
                     );
-                  })}
-                </div>
+                  })
+                )}
               </div>
             </CardContent>
           </Card>
@@ -715,6 +816,14 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
           </Card>
         </aside>
       </div>
+
+      <SchedulePostModal
+        open={scheduleModalOpen}
+        initialValue={status === "scheduled" ? scheduledFor : null}
+        busy={busyAction === "schedule"}
+        onCancel={() => setScheduleModalOpen(false)}
+        onConfirm={handleConfirmSchedule}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { serverEnv } from "@/lib/env";
+import { sendPerPostNewsletter } from "@/lib/email/newsletter";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
   // Use each post's own scheduled_for as published_at so the public byline
   // reflects the intended slot, not the time the cron happened to fire.
   let promoted = 0;
+  let newslettersDispatched = 0;
   const failures: { id: string; error: string }[] = [];
   for (const r of rows) {
     const { error } = await service
@@ -51,11 +53,27 @@ export async function GET(request: NextRequest) {
         published_at: r.scheduled_for ?? nowIso,
       })
       .eq("id", r.id);
-    if (error) failures.push({ id: r.id, error: error.message });
-    else promoted++;
+    if (error) {
+      failures.push({ id: r.id, error: error.message });
+      continue;
+    }
+    promoted++;
+    // Idempotent — `sendPerPostNewsletter` claims the post via a conditional
+    // newsletter_sent_at update, so retries / double-runs never duplicate mail.
+    const dispatch = await sendPerPostNewsletter(r.id);
+    if (dispatch.ok && (dispatch.sent ?? 0) > 0) newslettersDispatched++;
+    if (!dispatch.ok && dispatch.error) {
+      console.error(`[cron:publish-scheduled] newsletter for ${r.id} failed: ${dispatch.error}`);
+    }
   }
 
   if (failures.length > 0) console.error("[cron:publish-scheduled] failures", failures);
-  console.log(`[cron:publish-scheduled] promoted=${promoted} failed=${failures.length}`);
-  return NextResponse.json({ ok: true, promoted, failed: failures.length, now: nowIso });
+  console.log(`[cron:publish-scheduled] promoted=${promoted} mailed=${newslettersDispatched} failed=${failures.length}`);
+  return NextResponse.json({
+    ok: true,
+    promoted,
+    newsletters: newslettersDispatched,
+    failed: failures.length,
+    now: nowIso,
+  });
 }

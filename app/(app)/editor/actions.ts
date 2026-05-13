@@ -5,11 +5,12 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/auth/guards";
 import { slugify, withSuffix } from "@/lib/utils/slugs";
-import { publishSlotFor, weekStartISO } from "@/lib/utils/dates";
+import { weekStartISO } from "@/lib/utils/dates";
 import { readTimeFromHtml } from "@/lib/utils/read-time";
 import { sanitizeHtml } from "@/lib/editor/sanitize";
 import { publicEnv } from "@/lib/env";
 import { WEEKLY_TEMPLATE } from "@/lib/editor/template";
+import { sendPerPostNewsletter } from "@/lib/email/newsletter";
 
 const SavePostSchema = z.object({
   id: z.string().uuid().optional(),
@@ -22,7 +23,8 @@ const SavePostSchema = z.object({
   content_json: z.unknown(),
   content_html: z.string().default(""),
   status: z.enum(["draft", "submitted", "scheduled", "published", "archived"]).default("draft"),
-  assigned_weekday: z.number().int().min(1).max(5).nullable().optional(),
+  // `scheduled_for` is now an explicit input from the Schedule Post modal.
+  // The server only writes it when status === "scheduled".
   scheduled_for: z.string().datetime().nullable().optional(),
   cover_media_id: z.string().uuid().nullable().optional(),
   tag_ids: z.array(z.string().uuid()).optional(),
@@ -85,33 +87,36 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
     };
   }
 
-  // Determine desired status; enforce review workflow + assigned-day scheduling.
+  // Determine desired status. The new publish flow has three explicit verbs —
+  // Save Draft, Schedule Post, Post Now — which set draft / scheduled / published
+  // respectively. The optional manager-review gate still demotes a Post Now to
+  // "submitted" for authors.
   let desiredStatus = data.status;
   if (publicEnv.requireManagerReview && profile.role === "author" && desiredStatus === "published") {
     desiredStatus = "submitted";
   }
 
-  // The post's assigned day comes from the form, falling back to the author's
-  // default weekday from their profile.
-  const effectiveWeekday = data.assigned_weekday ?? profile.weekly_post_day ?? null;
-
-  // Schedule logic: when an author "publishes" before their assigned day, hold
-  // the post in `scheduled` status until that slot. The cron in
-  // /api/cron/publish-scheduled promotes it to `published` on the day.
-  let scheduledFor: string | null = data.scheduled_for ?? null;
-  if (desiredStatus === "published") {
-    if (effectiveWeekday) {
-      const slot = publishSlotFor(weekStartISO(), effectiveWeekday);
-      if (slot.getTime() > Date.now()) {
-        desiredStatus = "scheduled";
-        scheduledFor = slot.toISOString();
-      } else {
-        // Slot is today/past — go live now and clear any prior schedule.
-        scheduledFor = null;
-      }
-    } else {
-      scheduledFor = null;
+  // Scheduling is now FULLY manual via the Schedule Post modal. We only honour
+  // scheduled_for when the client explicitly set status === "scheduled", and
+  // we enforce that the slot is in the future so authors can't backdate.
+  let scheduledFor: string | null = null;
+  if (desiredStatus === "scheduled") {
+    if (!data.scheduled_for) {
+      return {
+        ok: false,
+        error: "Pick a future date and time before scheduling.",
+        fieldErrors: { scheduled_for: "Choose a future date and time." },
+      };
     }
+    const slot = new Date(data.scheduled_for).getTime();
+    if (Number.isNaN(slot) || slot <= Date.now()) {
+      return {
+        ok: false,
+        error: "Choose a future date and time.",
+        fieldErrors: { scheduled_for: "Choose a future date and time." },
+      };
+    }
+    scheduledFor = new Date(slot).toISOString();
   }
 
   // Storage path verification for cover image: the supplied media_assets row
@@ -163,18 +168,21 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
       content_json: data.content_json,
       content_html: html,
       status: desiredStatus,
-      assigned_weekday: effectiveWeekday,
       scheduled_for: scheduledFor,
       cover_media_id: coverMediaId ?? null,
       read_time_minutes: readTime,
     };
-    if (desiredStatus === "published" && !((existing as { published_at?: string | null }).published_at)) {
+    if (desiredStatus === "published") {
+      // Always stamp the publish time on "Post Now" so the public byline
+      // matches the live moment, even if the post had a previous run as a
+      // scheduled draft.
       update.published_at = new Date().toISOString();
     }
-    // Clear published_at when a post moves back to scheduled (e.g. author
-    // re-publishes after editing) so the live date reflects the slot, not the
-    // earliest draft save.
-    if (desiredStatus === "scheduled") update.published_at = null;
+    // Clear published_at when a post moves back to scheduled or draft so the
+    // live date reflects the next real publish, not an earlier run.
+    if (desiredStatus === "scheduled" || desiredStatus === "draft") {
+      update.published_at = null;
+    }
     if (desiredStatus === "archived") update.archived_at = new Date().toISOString();
 
     const { error: updErr } = await supabase.from("posts").update(update).eq("id", postId);
@@ -204,7 +212,10 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
       content_html: html,
       status: desiredStatus,
       week_start_date: weekStartISO(),
-      assigned_weekday: effectiveWeekday,
+      // Assigned weekday is preserved for admin planning + analytics but no
+      // longer drives publishing. We seed it from the author's profile so the
+      // contributor board stays accurate.
+      assigned_weekday: profile.weekly_post_day ?? null,
       scheduled_for: scheduledFor,
       cover_media_id: coverMediaId ?? null,
       read_time_minutes: readTime,
@@ -224,6 +235,16 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
         .from("post_tags")
         .insert(data.tag_ids.map((tag_id) => ({ post_id: postId, tag_id })));
     }
+  }
+
+  // Per-post newsletter — fired once when a post becomes "published". The DB
+  // column newsletter_sent_at gates duplicates so re-saves never re-send.
+  if (desiredStatus === "published" && postId) {
+    // Fire-and-forget: never block the editor on the email round-trip. The
+    // function itself is idempotent so a missed/retried call is safe.
+    void sendPerPostNewsletter(postId).catch((err) => {
+      console.error("[savePost] newsletter dispatch failed", err);
+    });
   }
 
   revalidatePath("/");

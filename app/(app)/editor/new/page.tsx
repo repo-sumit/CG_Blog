@@ -46,7 +46,6 @@ export default async function NewEditorPage({
         title: "",
         content_json: WEEKLY_TEMPLATE,
         status: "draft",
-        assigned_weekday: profile.weekly_post_day ?? null,
       }}
     />
   );

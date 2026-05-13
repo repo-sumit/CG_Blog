@@ -112,6 +112,10 @@
   /* Force-dark — the design only ships in dark mode. */
   html {
     color-scheme: dark;
+    /* Hard-cap viewport width — prevents content with stray fixed widths from
+       creating a horizontal scroll on mobile. Editor layouts still own their
+       internal `min-w-0`/`overflow-hidden` guards to keep grids reflowing. */
+    overflow-x: hidden;
   }
 
   * {
@@ -125,6 +129,9 @@
     font-feature-settings: "ss01", "ss02";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Same hard-cap as <html> — belt + suspenders for browsers that ignore the
+       html-level rule. */
+    overflow-x: hidden;
   }
 
   ::selection {
@@ -254,6 +261,17 @@
     50%      { opacity: 1;    transform: scale(1.28); }
   }
 
+  /* Demo "watching" counter — a slower, blue pulse so the chip reads as
+     "simulated activity" rather than a real notification. */
+  .demo-counter-pulse {
+    animation: demoCounterPulse 2.4s ease-in-out infinite;
+    box-shadow: 0 0 6px rgba(79, 140, 255, 0.55);
+  }
+  @keyframes demoCounterPulse {
+    0%, 100% { opacity: 0.55; transform: scale(1); }
+    50%      { opacity: 1;    transform: scale(1.25); }
+  }
+
   /* Ticker marquee */
   .ticker-track {
     display: inline-flex;
@@ -271,10 +289,18 @@
    Tiptap editor — re-skinned for dark portal
    ============================================================ */
 .ProseMirror {
-  min-height: 420px;
-  padding: 20px 24px;
+  min-height: 360px;
+  padding: 16px 18px;
   outline: none;
   color: var(--text-main);
+  /* Prevent unbreakable strings (long URLs, monospace identifiers) from
+     pushing the editor wider than its container on mobile. */
+  overflow-wrap: anywhere;
+}
+@media (min-width: 640px) {
+  .ProseMirror {
+    padding: 20px 24px;
+  }
 }
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
@@ -311,5 +337,5 @@
 .article-body pre { background: var(--bg-panel-soft); border: 1px solid var(--border-soft); padding: 14px 18px; border-radius: var(--radius-md); overflow-x: auto; }
 
 @media (prefers-reduced-motion: reduce) {
-  .ticker-track, .signal-dot { animation: none; }
+  .ticker-track, .signal-dot, .demo-counter-pulse { animation: none; }
 }

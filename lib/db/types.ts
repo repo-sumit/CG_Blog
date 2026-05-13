@@ -52,6 +52,7 @@ export interface PostRow {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  newsletter_sent_at: string | null;
 }
 
 export interface MediaAssetRow {

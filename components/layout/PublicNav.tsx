@@ -2,7 +2,9 @@ import Link from "next/link";
 import { LogIn, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { BrandLockup } from "@/components/portal/BrandLockup";
+import { DemoWatchingCounter } from "@/components/analytics/DemoWatchingCounter";
 import { getSessionContext } from "@/lib/auth/guards";
+import { publicEnv } from "@/lib/env";
 
 /**
  * Public-facing top nav for the landing + /posts/[slug] routes. No auth gate,
@@ -26,6 +28,18 @@ export async function PublicNav() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          {publicEnv.enableDemoWatchingCounter && (
+            <>
+              {/* Desktop label, hidden on small screens to keep the nav uncluttered. */}
+              <div className="hidden sm:block">
+                <DemoWatchingCounter />
+              </div>
+              {/* Compact pill for mobile — number-only so it fits beside the brand. */}
+              <div className="sm:hidden">
+                <DemoWatchingCounter compact />
+              </div>
+            </>
+          )}
           {ctx ? (
             <Button asChild variant="outline" size="sm">
               <Link href="/dashboard">

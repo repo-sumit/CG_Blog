@@ -270,7 +270,10 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
         </div>
 
         {/* ============ Subscribe ============ */}
-        <SubscribeSection />
+        {/* ConveGenius Weekly Signals — temporarily hidden. Re-enable by uncommenting
+            <SubscribeSection /> below. The /api/subscribe endpoint and welcome email
+            still work; only the landing-page entry point is suppressed. */}
+        {/* <SubscribeSection /> */}
       </main>
 
       <PortalFooter />

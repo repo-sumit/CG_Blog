@@ -17,7 +17,7 @@ import { PublicNav } from "@/components/layout/PublicNav";
 import { PortalFooter } from "@/components/layout/PortalFooter";
 import { CommentsSection } from "@/components/comments/CommentsSection";
 import { ReactionsBar } from "@/components/reactions/ReactionsBar";
-import { formatPostDate, weekdayLabel } from "@/lib/utils/dates";
+import { formatPostDate } from "@/lib/utils/dates";
 import { roleLabel } from "@/lib/auth/roles";
 import { sanitizeHtml } from "@/lib/editor/sanitize";
 import { getSessionContext } from "@/lib/auth/guards";
@@ -69,9 +69,6 @@ export default async function PublicPostPage({ params }: { params: { slug: strin
               {post.tags.map((t) => (
                 <Badge key={t.id} variant="secondary">{t.name}</Badge>
               ))}
-              {post.assigned_weekday && (
-                <Badge variant="outline">{weekdayLabel(post.assigned_weekday)}</Badge>
-              )}
             </div>
 
             <h1 className="font-hero text-4xl font-bold uppercase leading-[1] tracking-tighter text-portal-text sm:text-5xl lg:text-6xl">
