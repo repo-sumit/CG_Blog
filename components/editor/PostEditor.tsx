@@ -26,6 +26,7 @@ import { formatScheduledLabel } from "@/lib/utils/dates";
 import { track } from "@/lib/analytics/track";
 import { parseEmbedUrl } from "@/lib/utils/embeds";
 import { validateFile } from "@/lib/utils/file-validation";
+import { directUploadMedia } from "@/lib/media/direct-upload";
 import { publicEnv } from "@/lib/env";
 import type { PostRow, PostStatus, TagRow, AppRole } from "@/lib/db/types";
 import { cn } from "@/lib/utils/cn";
@@ -275,32 +276,29 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
         return;
       }
 
-      const form = new FormData();
-      form.append("file", file);
-      if (postId) form.append("postId", postId);
       const toastId = toast.loading(`Uploading ${file.name}…`);
       try {
-        const res = await fetch("/api/media/upload", { method: "POST", body: form });
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || "Upload failed.");
+        // Direct upload to Supabase Storage — bypasses Vercel's 4.5 MB
+        // function payload limit so 150 MB videos work.
+        const result = await directUploadMedia({ file, postId });
+        if (!result.ok || !result.signedUrl) {
+          throw new Error(result.error || "Upload failed.");
         }
-        const json = (await res.json()) as { signedUrl: string; mediaType: "image" | "video" | "audio" };
-        if (json.mediaType === "image") {
-          editor.chain().focus().setImage({ src: json.signedUrl, alt: file.name }).run();
-        } else if (json.mediaType === "video") {
+        if (result.mediaType === "image") {
+          editor.chain().focus().setImage({ src: result.signedUrl, alt: file.name }).run();
+        } else if (result.mediaType === "video") {
           editor
             .chain()
             .focus()
             .insertContent(
-              `<video controls preload="metadata" src="${json.signedUrl}" style="max-width:100%; border-radius:0.5rem"></video><p></p>`,
+              `<video controls preload="metadata" src="${result.signedUrl}" style="max-width:100%; border-radius:0.5rem"></video><p></p>`,
             )
             .run();
         } else {
           editor
             .chain()
             .focus()
-            .insertContent(`<audio controls src="${json.signedUrl}"></audio><p></p>`)
+            .insertContent(`<audio controls src="${result.signedUrl}"></audio><p></p>`)
             .run();
         }
         setSaveState("unsaved");
@@ -498,17 +496,17 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
         return;
       }
       setCoverUploading(true);
-      const form = new FormData();
-      form.append("file", file);
-      if (postId) form.append("postId", postId);
       const toastId = toast.loading(`Uploading ${file.name}…`);
       try {
-        const res = await fetch("/api/media/upload", { method: "POST", body: form });
-        if (!res.ok) throw new Error(await res.text());
-        const json = (await res.json()) as { mediaId?: string | null; signedUrl?: string };
-        if (!json.mediaId || !json.signedUrl) throw new Error("Upload did not return a media id.");
-        setCoverMediaId(json.mediaId);
-        setCoverUrl(json.signedUrl);
+        // Direct upload — same flow as the body insert; sidesteps Vercel's
+        // 4.5 MB payload cap. Cover images are usually small but using the
+        // same path keeps both call-sites consistent.
+        const result = await directUploadMedia({ file, postId });
+        if (!result.ok || !result.mediaId || !result.signedUrl) {
+          throw new Error(result.error || "Upload failed.");
+        }
+        setCoverMediaId(result.mediaId);
+        setCoverUrl(result.signedUrl);
         setSaveState("unsaved");
         toast.success("Thumbnail set.", { id: toastId });
       } catch (err) {

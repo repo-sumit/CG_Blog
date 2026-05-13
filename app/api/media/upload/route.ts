@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { buildStoragePath, validateFile } from "@/lib/utils/file-validation";
+import { classifyMime, validateFile } from "@/lib/utils/file-validation";
 import { publicEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -8,6 +9,40 @@ export const dynamic = "force-dynamic";
 
 const BUCKET = "blog-media";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// `{userId}/{postId|drafts}/{ts}-{filename}` — matches buildStoragePath().
+// The first folder MUST be a UUID we can compare against auth.uid().
+const PATH_RE = new RegExp(
+  `^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|drafts)/[^/].+$`,
+  "i",
+);
+
+const Body = z.object({
+  path: z.string().min(8).max(512),
+  fileName: z.string().min(1).max(256),
+  mimeType: z.string().min(1).max(120),
+  sizeBytes: z.number().int().nonnegative(),
+  postId: z.string().uuid().optional().nullable(),
+});
+
+/**
+ * POST /api/media/upload
+ *
+ * Records a `media_assets` row for a file the client has already uploaded
+ * directly to Supabase Storage. The actual bytes never travel through this
+ * function — that's why we can support 150 MB videos despite Vercel's
+ * 4.5 MB request-body limit. The browser hits Supabase Storage directly
+ * (see `lib/media/direct-upload.ts`), then sends a small JSON payload here
+ * to register the metadata.
+ *
+ * Security:
+ *   1. Caller must be an author or manager (cookie auth).
+ *   2. The claimed `path` must start with the caller's own user.id — stops
+ *      Alice from registering Bob's upload as her own. Supabase storage RLS
+ *      already enforces the same constraint at the storage layer; this is
+ *      defense-in-depth.
+ *   3. Mime and size must pass the same caps as before.
+ */
 export async function POST(request: NextRequest) {
   const supabase = createSupabaseServerClient();
   const {
@@ -15,26 +50,47 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
   const role = (profile as { role?: string } | null)?.role;
   if (role !== "author" && role !== "manager") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const form = await request.formData();
-  const file = form.get("file");
-  const rawPostId = form.get("postId");
-  // Only accept UUIDs — anything else is treated as no post id, so the file
-  // lands under {user_id}/drafts/ instead of an arbitrary attacker-chosen path.
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const postId = typeof rawPostId === "string" && UUID_RE.test(rawPostId) ? rawPostId : null;
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Missing file" }, { status: 400 });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  const parsed = Body.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
+      { status: 400 },
+    );
+  }
+  const { path, fileName, mimeType, sizeBytes, postId: rawPostId } = parsed.data;
+
+  // Path shape + ownership check.
+  const m = PATH_RE.exec(path);
+  if (!m) return NextResponse.json({ error: "Invalid path." }, { status: 400 });
+  const pathOwner = m[1]!.toLowerCase();
+  if (pathOwner !== user.id.toLowerCase()) {
+    return NextResponse.json({ error: "Path does not belong to you." }, { status: 403 });
   }
 
-  // Per-media-type byte cap. Images / audio / docs stay at the standard
-  // limit; video gets the larger `maxVideoUploadMb` since 50 MB was clipping
-  // even short screen recordings.
+  const mediaType = classifyMime(mimeType);
+  if (!mediaType) {
+    return NextResponse.json({ error: `Unsupported file type: ${mimeType}` }, { status: 400 });
+  }
+
+  // Per-media-type byte cap — same as before, but enforced AFTER the upload
+  // now. The client also checks this before uploading; the double-check
+  // here closes the loophole where a tampered client could ignore the cap.
   const MB = 1024 * 1024;
   const maxBytes = {
     image: publicEnv.maxUploadMb * MB,
@@ -42,24 +98,16 @@ export async function POST(request: NextRequest) {
     audio: publicEnv.maxUploadMb * MB,
     document: publicEnv.maxUploadMb * MB,
   };
-  const v = validateFile({ size: file.size, mime: file.type, maxBytes });
+  const v = validateFile({ size: sizeBytes, mime: mimeType, maxBytes });
   if (!v.ok || !v.mediaType) {
     return NextResponse.json({ error: v.error ?? "Invalid file" }, { status: 400 });
   }
 
-  const path = buildStoragePath(user.id, postId ?? "drafts", file.name);
-  const bytes = Buffer.from(await file.arrayBuffer());
+  // Only accept UUID `postId` so a tampered client can't claim the upload
+  // belongs to an arbitrary string. Anything else is recorded as draft media.
+  const postId =
+    typeof rawPostId === "string" && UUID_RE.test(rawPostId) ? rawPostId : null;
 
-  const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, bytes, {
-    contentType: file.type,
-    upsert: false,
-  });
-  if (upErr) {
-    return NextResponse.json({ error: upErr.message }, { status: 500 });
-  }
-
-  // Record asset and return its id so the client can wire it up as e.g. a
-  // post cover image without a second round-trip.
   const { data: asset } = await supabase
     .from("media_assets")
     .insert({
@@ -69,15 +117,15 @@ export async function POST(request: NextRequest) {
       storage_path: path,
       source_type: "upload",
       media_type: v.mediaType,
-      mime_type: file.type,
-      size_bytes: file.size,
-      title: file.name,
+      mime_type: mimeType,
+      size_bytes: sizeBytes,
+      title: fileName,
     })
     .select("id")
     .maybeSingle();
 
-  // Return a STABLE internal URL. /api/media/file re-signs the storage path
-  // on every request, so embedded media keeps playing forever (no 7-day TTL).
+  // Stable internal URL. /api/media/file re-signs the storage path on every
+  // request, so embedded media keeps playing forever (no 7-day TTL).
   const stableUrl = `/api/media/file?path=${encodeURIComponent(path)}`;
   return NextResponse.json({
     ok: true,
