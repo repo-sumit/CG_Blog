@@ -59,12 +59,19 @@ export function EditorToolbar({ editor, onInsertImage, onInsertVideo, onInsertAu
   };
 
   return (
-    // Sticks just below the 64px-tall TopNav (`h-16`) so the formatting
-    // controls stay reachable while writing a long post. Z-index sits below
-    // the nav (`z-40`) but above the editor body. On narrow viewports the
-    // row wraps; if it can't wrap (toolbar inside a flex parent that won't
-    // shrink) it falls back to horizontal scroll so no buttons clip.
-    <div className="sticky top-16 z-30 -mx-px flex max-w-full flex-wrap items-center gap-1 overflow-x-auto border-b bg-background/95 p-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+    // Sticks just below the 64px-tall TopNav (`h-16`). Critical: the parent
+    // <Card> MUST NOT set `overflow-hidden` — when it does, CSS treats the
+    // Card as a scroll context and the toolbar pins to the Card's top
+    // instead of the viewport, scrolling away with it.
+    //
+    // Z-index 30 sits below the nav (z-40) but above the editor body and
+    // the BubbleMenu (default tippy z-index is 9999, but that floats over
+    // the toolbar only while text is selected — intended).
+    //
+    // `bg-portal-panel` (solid) instead of `bg-background/95` so the
+    // backdrop-blur fallback isn't needed in older browsers — the toolbar
+    // reads cleanly on both themes via CSS variables.
+    <div className="sticky top-16 z-30 -mx-px flex max-w-full flex-wrap items-center gap-1 overflow-x-auto border-b border-portal-border-soft bg-portal-panel p-2 supports-[backdrop-filter]:bg-portal-panel/95 supports-[backdrop-filter]:backdrop-blur">
       <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Bold">
         <Bold className="h-4 w-4" />
       </ToolbarButton>

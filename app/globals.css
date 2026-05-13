@@ -421,7 +421,27 @@
 .article-body ul { @apply list-disc pl-6 my-4; }
 .article-body ol { @apply list-decimal pl-6 my-4; }
 .article-body blockquote { border-left: 3px solid var(--accent-orange); padding-left: 16px; font-style: italic; color: var(--text-muted); margin: 24px 0; }
-.article-body img, .article-body video, .article-body audio { @apply my-6 rounded-lg max-w-full; border: 1px solid var(--border-soft); }
+.article-body img, .article-body video { @apply my-6 rounded-lg max-w-full; border: 1px solid var(--border-soft); }
+.article-body audio { @apply my-6 w-full max-w-[560px]; }
+
+/* Editor-side media blocks — keep audio + video legible at any width and
+   make ProseMirror's node selection visible (used to drag/delete the block). */
+.ProseMirror audio,
+.ProseMirror video {
+  display: block;
+  margin: 14px 0;
+  max-width: 100%;
+}
+.ProseMirror audio {
+  width: 100%;
+  max-width: 560px;
+}
+.ProseMirror audio.ProseMirror-selectednode,
+.ProseMirror video.ProseMirror-selectednode {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
 .article-body a,
 .article-body a * {
   color: var(--accent-blue) !important;

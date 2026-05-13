@@ -27,6 +27,7 @@ import { track } from "@/lib/analytics/track";
 import { parseEmbedUrl } from "@/lib/utils/embeds";
 import { validateFile } from "@/lib/utils/file-validation";
 import { directUploadMedia } from "@/lib/media/direct-upload";
+import { insertMediaBlock } from "@/lib/editor/media-extensions";
 import { publicEnv } from "@/lib/env";
 import type { PostRow, PostStatus, TagRow, AppRole } from "@/lib/db/types";
 import { cn } from "@/lib/utils/cn";
@@ -287,19 +288,12 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
         if (result.mediaType === "image") {
           editor.chain().focus().setImage({ src: result.signedUrl, alt: file.name }).run();
         } else if (result.mediaType === "video") {
-          editor
-            .chain()
-            .focus()
-            .insertContent(
-              `<video controls preload="metadata" src="${result.signedUrl}" style="max-width:100%; border-radius:0.5rem"></video><p></p>`,
-            )
-            .run();
+          // Typed node insert — schema-aware, so ProseMirror manages the DOM
+          // lifecycle cleanly. Replaces the old raw-HTML `insertContent` path
+          // that caused the `removeChild` console error + invisible media.
+          insertMediaBlock(editor, "video", { src: result.signedUrl, title: file.name });
         } else {
-          editor
-            .chain()
-            .focus()
-            .insertContent(`<audio controls src="${result.signedUrl}"></audio><p></p>`)
-            .run();
+          insertMediaBlock(editor, "audio", { src: result.signedUrl, title: file.name });
         }
         setSaveState("unsaved");
         toast.success("Inserted.", { id: toastId });
@@ -524,8 +518,11 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
   const anyActionBusy = busyAction !== null;
 
   return (
-    <div className="mx-auto w-full max-w-screen-xl px-3 pb-10 pt-4 sm:px-4 sm:pb-12 sm:pt-6">
-      <div className="mb-3 flex flex-wrap items-center gap-2 sm:mb-4">
+    // Tight top spacing — was pt-4 sm:pt-6 + the back-bar's mb-3 + the action
+    // row's mb-4 = ~80px of pre-editor padding which left a big empty block
+    // above the toolbar. Compressed to fit the editor closer to the nav.
+    <div className="mx-auto w-full max-w-screen-xl px-3 pb-10 pt-3 sm:px-4 sm:pb-12 sm:pt-4">
+      <div className="mb-2 flex flex-wrap items-center gap-2 sm:mb-3">
         <Button asChild variant="ghost" size="sm">
           <Link href="/me/posts">← My posts</Link>
         </Button>
@@ -549,7 +546,7 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
       </div>
 
       {/* Publish action bar — horizontal on desktop, full-width stacked on mobile. */}
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3">
         <Button
           variant="outline"
           onClick={handleSaveDraft}
@@ -593,20 +590,25 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <Card className="overflow-hidden">
+        {/* Editor shell — sticky toolbar requires NO `overflow-hidden` on this
+            container. With `overflow-hidden` set, CSS treats the Card as a
+            scroll context and the sticky toolbar pins to the Card's top
+            instead of the viewport, scrolling away with the card. Rounded
+            corners are preserved by `rounded-md` from `portal-panel` even
+            without clipping — the inner toolbar / content respect the
+            radius on their own. */}
+        <Card className="min-w-0">
           {!previewMode && (
-            <>
-              <EditorToolbar
-                editor={editor}
-                onInsertImage={() => pickFile("image/*", handleFileInsert("image"))}
-                onInsertVideo={() => pickFile("video/*", handleFileInsert("video"))}
-                onInsertAudio={() => pickFile("audio/*", handleFileInsert("audio"))}
-                onInsertEmbed={handleEmbed}
-              />
-            </>
+            <EditorToolbar
+              editor={editor}
+              onInsertImage={() => pickFile("image/*", handleFileInsert("image"))}
+              onInsertVideo={() => pickFile("video/*", handleFileInsert("video"))}
+              onInsertAudio={() => pickFile("audio/*", handleFileInsert("audio"))}
+              onInsertEmbed={handleEmbed}
+            />
           )}
           <CardContent className="p-0">
-            <div className="space-y-5 px-4 pt-5 pb-4 sm:px-6 sm:pt-7 sm:pb-5">
+            <div className="space-y-4 px-4 pt-4 pb-4 sm:px-6 sm:pt-5 sm:pb-5">
               <label className="block">
                 <span className="mb-2 flex items-center gap-1 text-[10px] uppercase tracking-wider text-portal-text-muted">
                   Title
