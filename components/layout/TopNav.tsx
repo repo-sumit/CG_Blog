@@ -8,6 +8,7 @@ import { canAuthor, isManager, roleLabel } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils/cn";
 import { Avatar } from "@/components/ui/Avatar";
 import { BrandLockup } from "@/components/portal/BrandLockup";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 interface NavItem {
   href: string;
@@ -65,6 +66,8 @@ export function TopNav({ profile, effectiveRole, viewModeActive }: Props) {
         </nav>
 
         <div className="ml-auto flex items-center gap-3">
+          <ThemeToggle compact className="md:hidden" />
+          <ThemeToggle className="hidden md:inline-flex" />
           <div className="hidden flex-col items-end leading-tight sm:flex">
             <span className="font-ui text-xs text-portal-text">{profile.full_name || profile.email}</span>
             <span className="font-ui text-[10px] uppercase tracking-wider text-portal-text-muted">

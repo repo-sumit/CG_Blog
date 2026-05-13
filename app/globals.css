@@ -3,53 +3,19 @@
 @tailwind utilities;
 
 /* ============================================================
-   Dark Portal design tokens
-   Source of truth for the CG Signal redesign.
+   CG SIGNAL design tokens — theme-aware
+   ------------------------------------------------------------
+   Structure:
+     :root            → non-theme tokens (radii, fonts, spacing,
+                        tracking, leading) — same on both themes
+     :root, [data-theme="dark"]  → dark palette
+     [data-theme="light"]        → light palette
+   The pre-hydration ThemeScript stamps `data-theme` on <html>
+   before the first paint so there's no flash of wrong colours.
    ============================================================ */
 @layer base {
   :root {
-    /* Surfaces ------------------------------------------------ */
-    --bg-main: #08090d;
-    --bg-page: #0b0d12;
-    --bg-panel: #11141b;
-    --bg-panel-raised: #171b24;
-    --bg-panel-soft: #0f1218;
-    --bg-inverse: #f4f0df;
-
-    /* Text — slightly brighter muted/soft tones for better readability */
-    --text-main: #f5f1e8;
-    --text-muted: #c5c0b3;
-    --text-soft: #8b8678;
-    --text-inverse: #0a0a0a;
-
-    /* Borders ------------------------------------------------- */
-    --border-main: #f5f1e8;
-    --border-muted: #373c49;
-    --border-soft: #252a35;
-    --border-glow: rgba(245, 241, 232, 0.28);
-
-    /* Accents ------------------------------------------------- */
-    --accent-orange: #ff5a1f;
-    --accent-blue: #4f8cff;
-    --accent-green: #35d07f;
-    --accent-yellow: #ffd166;
-    --accent-red: #ff4d5e;
-
-    /* Patterns ------------------------------------------------ */
-    --pixel-dark: #08090d;
-    --pixel-light: #f5f1e8;
-    /* Patterns made considerably softer so the grid overlay reads as texture,
-       not a competing layer */
-    --grid-line: rgba(245, 241, 232, 0.035);
-    --noise-opacity: 0.04;
-
-    /* Shadows ------------------------------------------------- */
-    --shadow-soft: 0 18px 50px rgba(0, 0, 0, 0.42);
-    --shadow-panel: 0 12px 32px rgba(0, 0, 0, 0.32);
-    --shadow-glow: 0 0 0 1px rgba(245, 241, 232, 0.08),
-                   0 18px 60px rgba(79, 140, 255, 0.12);
-
-    /* Radii --------------------------------------------------- */
+    /* Radii — theme-independent ------------------------------ */
     --radius-xs: 8px;
     --radius-sm: 12px;
     --radius-md: 16px;
@@ -68,50 +34,149 @@
     --leading-title: 0.95;
     --leading-body: 1.65;
 
-    /* ---- shadcn/Tailwind theme aliases (HSL-compatible) ----
-       Kept so existing components built on the previous palette
-       (Badge variants, primary/secondary/etc.) re-render in
-       portal colors without rewriting every className. */
-    --background: 220 20% 5%;
-    --foreground: 40 30% 94%;
-
-    --card: 222 22% 9%;
-    --card-foreground: 40 30% 94%;
-
-    --popover: 222 22% 9%;
-    --popover-foreground: 40 30% 94%;
-
-    --primary: 220 100% 65%;            /* accent blue */
-    --primary-foreground: 220 20% 5%;
-
-    --secondary: 222 18% 14%;
-    --secondary-foreground: 40 30% 94%;
-
-    --muted: 222 18% 14%;
-    --muted-foreground: 40 12% 74%;
-
-    --accent: 16 100% 56%;              /* accent orange */
-    --accent-foreground: 220 20% 5%;
-
-    --destructive: 354 100% 65%;
-    --destructive-foreground: 220 20% 5%;
-
-    --success: 148 60% 51%;
-    --success-foreground: 220 20% 5%;
-
-    --warning: 41 100% 70%;
-    --warning-foreground: 220 20% 5%;
-
-    --border: 222 14% 25%;              /* border-muted */
-    --input: 222 14% 25%;
-    --ring: 220 100% 65%;
-
     --radius: var(--radius-panel);
   }
 
-  /* Force-dark — the design only ships in dark mode. */
-  html {
+  /* ──────── DARK (default if no theme set yet) ──────── */
+  :root,
+  [data-theme="dark"] {
     color-scheme: dark;
+
+    /* Surfaces */
+    --bg-main: #08090d;
+    --bg-page: #0b0d12;
+    --bg-panel: #11141b;
+    --bg-panel-raised: #171b24;
+    --bg-panel-soft: #0f1218;
+    --bg-inverse: #f4f0df;
+
+    /* Text — slightly brighter muted/soft tones for better readability */
+    --text-main: #f5f1e8;
+    --text-muted: #c5c0b3;
+    --text-soft: #8b8678;
+    --text-inverse: #0a0a0a;
+
+    /* Borders */
+    --border-main: #f5f1e8;
+    --border-muted: #373c49;
+    --border-soft: #252a35;
+    --border-glow: rgba(245, 241, 232, 0.28);
+
+    /* Accents (theme-stable brand colours — same in both modes) */
+    --accent-orange: #ff5a1f;
+    --accent-blue: #4f8cff;
+    --accent-green: #35d07f;
+    --accent-yellow: #ffd166;
+    --accent-red: #ff4d5e;
+
+    /* Patterns */
+    --pixel-dark: #08090d;
+    --pixel-light: #f5f1e8;
+    --grid-line: rgba(245, 241, 232, 0.035);
+    --noise-opacity: 0.04;
+
+    /* Shadows */
+    --shadow-soft: 0 18px 50px rgba(0, 0, 0, 0.42);
+    --shadow-panel: 0 12px 32px rgba(0, 0, 0, 0.32);
+    --shadow-glow: 0 0 0 1px rgba(245, 241, 232, 0.08),
+                   0 18px 60px rgba(79, 140, 255, 0.12);
+
+    /* shadcn HSL aliases — dark */
+    --background: 220 20% 5%;
+    --foreground: 40 30% 94%;
+    --card: 222 22% 9%;
+    --card-foreground: 40 30% 94%;
+    --popover: 222 22% 9%;
+    --popover-foreground: 40 30% 94%;
+    --primary: 220 100% 65%;
+    --primary-foreground: 220 20% 5%;
+    --secondary: 222 18% 14%;
+    --secondary-foreground: 40 30% 94%;
+    --muted: 222 18% 14%;
+    --muted-foreground: 40 12% 74%;
+    --accent: 16 100% 56%;
+    --accent-foreground: 220 20% 5%;
+    --destructive: 354 100% 65%;
+    --destructive-foreground: 220 20% 5%;
+    --success: 148 60% 51%;
+    --success-foreground: 220 20% 5%;
+    --warning: 41 100% 70%;
+    --warning-foreground: 220 20% 5%;
+    --border: 222 14% 25%;
+    --input: 222 14% 25%;
+    --ring: 220 100% 65%;
+  }
+
+  /* ──────── LIGHT — editorial paper, NOT plain white ──────── */
+  [data-theme="light"] {
+    color-scheme: light;
+
+    /* Surfaces — warm off-white paper stack */
+    --bg-main: #f6f2e9;
+    --bg-page: #fffdf8;
+    --bg-panel: #ffffff;
+    --bg-panel-raised: #fffefa;
+    --bg-panel-soft: #f0ebe2;
+    --bg-inverse: #11141b;
+
+    /* Text — near-black ink on cream */
+    --text-main: #111111;
+    --text-muted: #4d4d4d;
+    --text-soft: #6f6a5f;
+    --text-inverse: #f5f1e8;
+
+    /* Borders — soft warm grays */
+    --border-main: #111111;
+    --border-muted: #d5d0c7;
+    --border-soft: #e7e1d4;
+    --border-glow: rgba(17, 17, 17, 0.22);
+
+    /* Accents — slightly desaturated to read editorial on cream */
+    --accent-orange: #e6491b;
+    --accent-blue: #2563eb;
+    --accent-green: #059669;
+    --accent-yellow: #c2810f;
+    --accent-red: #dc2626;
+
+    /* Patterns — soft warm gridlines */
+    --pixel-dark: #11141b;
+    --pixel-light: #f6f2e9;
+    --grid-line: rgba(17, 17, 17, 0.05);
+    --noise-opacity: 0.025;
+
+    /* Shadows — softer for paper feel */
+    --shadow-soft: 0 14px 40px rgba(17, 17, 17, 0.08);
+    --shadow-panel: 0 8px 24px rgba(17, 17, 17, 0.07);
+    --shadow-glow: 0 0 0 1px rgba(17, 17, 17, 0.05),
+                   0 14px 40px rgba(37, 99, 235, 0.08);
+
+    /* shadcn HSL aliases — light */
+    --background: 36 50% 94%;
+    --foreground: 0 0% 7%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 7%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 7%;
+    --primary: 220 90% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 36 32% 90%;
+    --secondary-foreground: 0 0% 7%;
+    --muted: 36 28% 88%;
+    --muted-foreground: 0 0% 30%;
+    --accent: 16 80% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 161 94% 30%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 80% 40%;
+    --warning-foreground: 0 0% 100%;
+    --border: 36 18% 81%;
+    --input: 36 18% 81%;
+    --ring: 220 90% 53%;
+  }
+
+  html {
     /* Hard-cap viewport width — prevents content with stray fixed widths from
        creating a horizontal scroll on mobile. Editor layouts still own their
        internal `min-w-0`/`overflow-hidden` guards to keep grids reflowing. */

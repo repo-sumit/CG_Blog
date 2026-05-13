@@ -1,7 +1,10 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: ["class"],
+  // Tailwind `dark:` utilities resolve via the `data-theme="dark"` attribute
+  // that our ThemeProvider stamps on <html>. We keep this in sync with the
+  // CSS variable swap in `globals.css` so future code can use either approach.
+  darkMode: ["selector", "[data-theme=\"dark\"]"],
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
   theme: {
     container: {

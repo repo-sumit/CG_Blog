@@ -3,6 +3,7 @@ import { LogIn, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { BrandLockup } from "@/components/portal/BrandLockup";
 import { DemoWatchingCounter } from "@/components/analytics/DemoWatchingCounter";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { getSessionContext } from "@/lib/auth/guards";
 import { publicEnv } from "@/lib/env";
 
@@ -40,6 +41,14 @@ export async function PublicNav() {
               </div>
             </>
           )}
+
+          {/* Theme picker — full segmented control on sm+, single icon-button on mobile. */}
+          <div className="hidden sm:block">
+            <ThemeToggle />
+          </div>
+          <div className="sm:hidden">
+            <ThemeToggle compact />
+          </div>
           {ctx ? (
             <Button asChild variant="outline" size="sm">
               <Link href="/dashboard">

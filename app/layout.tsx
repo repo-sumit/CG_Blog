@@ -3,6 +3,8 @@ import { Space_Mono, Orbitron } from "next/font/google";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { ThemeScript } from "@/components/theme/ThemeScript";
 import "./globals.css";
 
 // UI font — monospace, used everywhere except the hero wordmark.
@@ -36,12 +38,24 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // `suppressHydrationWarning` on <html> is required because the pre-hydration
+  // ThemeScript mutates the `data-theme` attribute before React mounts.
   return (
-    <html lang="en" className={`${spaceMono.variable} ${orbitron.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${spaceMono.variable} ${orbitron.variable}`}
+    >
       <body className="min-h-screen bg-portal-main text-portal-text antialiased">
-        {children}
+        {/* MUST be the first child of <body> — runs before any paint so the
+            visible theme matches the user's persisted choice / OS preference
+            without a flash of the wrong colours. */}
+        <ThemeScript />
+        <ThemeProvider>{children}</ThemeProvider>
         <Toaster
-          theme="dark"
+          // Sonner reads this once; the toast surface itself is themed by the
+          // CSS variables it inherits via `toastOptions.style` below.
+          theme="system"
           richColors
           position="top-right"
           toastOptions={{
