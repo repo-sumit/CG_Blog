@@ -159,18 +159,27 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
 
       dirtyDuringSave.current = false;
       setSaveState("saving");
-      const json = editor.getJSON();
+      // TipTap's `getJSON()` can return objects whose internal nodes aren't
+      // built from `Object.prototype` — that trips Next.js's strict Server
+      // Action payload check ("Only plain objects, and a few built-ins, can
+      // be passed to Server Actions"). The cheapest reliable fix is a JSON
+      // round-trip: it strips every prototype and yields a guaranteed POJO.
+      const json = JSON.parse(JSON.stringify(editor.getJSON())) as unknown;
       const html = editor.getHTML();
+      const scheduled = opts.scheduledFor ?? (nextStatus === "scheduled" ? scheduledFor : null);
+      // Build the payload with NO `undefined` values — pass nulls explicitly
+      // for optional-nullable fields. Some Next versions reject `undefined`
+      // entries from the RSC serializer; null is always safe.
       const res = await savePost({
-        id: postId,
+        id: postId ?? undefined,
         title: title.trim(),
         excerpt: excerpt?.trim() || null,
         content_json: json,
         content_html: html,
         status: nextStatus,
-        scheduled_for: opts.scheduledFor ?? (nextStatus === "scheduled" ? scheduledFor : null),
-        cover_media_id: coverMediaId,
-        tag_ids: selectedTagIds,
+        scheduled_for: scheduled,
+        cover_media_id: coverMediaId ?? null,
+        tag_ids: [...selectedTagIds],
       });
 
       // If a newer save was started while we were awaiting (e.g. the user
