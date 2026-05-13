@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
   const maxBytes = {
     image: publicEnv.maxUploadMb * MB,
     video: publicEnv.maxVideoUploadMb * MB,
-    audio: publicEnv.maxUploadMb * MB,
+    audio: publicEnv.maxAudioUploadMb * MB,
     document: publicEnv.maxUploadMb * MB,
   };
   const v = validateFile({ size: sizeBytes, mime: mimeType, maxBytes });

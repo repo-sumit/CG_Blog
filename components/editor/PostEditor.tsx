@@ -255,7 +255,7 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
       const maxBytes = {
         image: publicEnv.maxUploadMb * MB,
         video: publicEnv.maxVideoUploadMb * MB,
-        audio: publicEnv.maxUploadMb * MB,
+        audio: publicEnv.maxAudioUploadMb * MB,
         document: publicEnv.maxUploadMb * MB,
       };
       const v = validateFile({ size: file.size, mime: file.type, maxBytes });
