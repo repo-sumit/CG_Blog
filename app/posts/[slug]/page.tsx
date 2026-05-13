@@ -19,6 +19,7 @@ import { PortalFooter } from "@/components/layout/PortalFooter";
 import { CommentsSection } from "@/components/comments/CommentsSection";
 import { ReactionsBar } from "@/components/reactions/ReactionsBar";
 import { PostViewTracker } from "@/components/analytics/PostViewTracker";
+import { PostShareButton } from "@/components/posts/PostShareButton";
 import { formatPostDate } from "@/lib/utils/dates";
 import { roleLabel } from "@/lib/auth/roles";
 import { sanitizeHtml } from "@/lib/editor/sanitize";
@@ -119,34 +120,54 @@ export default async function PublicPostPage({ params }: { params: { slug: strin
               <p className="mt-5 text-lg leading-relaxed text-portal-text-muted">{post.excerpt}</p>
             )}
 
-            <div className="mt-8 flex items-center gap-4 border-y border-portal-border-soft py-4">
-              <Avatar
-                src={post.author?.avatar_url}
-                name={post.author?.full_name}
-                email={post.author?.email}
-                size="lg"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-ui text-sm font-bold text-portal-text">
-                  {post.author?.full_name || post.author?.email}
+            <div className="mt-8 border-y border-portal-border-soft py-4">
+              <div className="flex items-center gap-4">
+                <Avatar
+                  src={post.author?.avatar_url}
+                  name={post.author?.full_name}
+                  email={post.author?.email}
+                  size="lg"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-ui text-sm font-bold text-portal-text">
+                    {post.author?.full_name || post.author?.email}
+                  </div>
+                  <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
+                    {roleLabel(post.author?.role)}
+                  </div>
                 </div>
-                <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
-                  {roleLabel(post.author?.role)}
+                <div className="text-right">
+                  <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
+                    {post.published_at ? formatPostDate(post.published_at) : ""}
+                  </div>
+                  <div className="mt-1 inline-flex items-center gap-2 text-[10px] uppercase tracking-wider text-portal-text-muted">
+                    <span className="inline-flex items-center gap-1">
+                      <Eye className="h-3 w-3" /> {post.viewCount} views
+                    </span>
+                    <span aria-hidden className="text-portal-text-soft">·</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> {post.read_time_minutes} min read
+                    </span>
+                  </div>
+                </div>
+                {/* Desktop share — sits right of the meta block, doesn't
+                    crowd the byline. Hidden on mobile in favour of the
+                    full-width row below. */}
+                <div className="hidden sm:block">
+                  <PostShareButton
+                    title={post.title}
+                    slug={post.slug}
+                    authorName={post.author?.full_name ?? post.author?.email ?? null}
+                  />
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
-                  {post.published_at ? formatPostDate(post.published_at) : ""}
-                </div>
-                <div className="mt-1 inline-flex items-center gap-2 text-[10px] uppercase tracking-wider text-portal-text-muted">
-                  <span className="inline-flex items-center gap-1">
-                    <Eye className="h-3 w-3" /> {post.viewCount} views
-                  </span>
-                  <span aria-hidden className="text-portal-text-soft">·</span>
-                  <span className="inline-flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> {post.read_time_minutes} min read
-                  </span>
-                </div>
+              {/* Mobile share — full-width row below the byline. */}
+              <div className="mt-3 sm:hidden">
+                <PostShareButton
+                  title={post.title}
+                  slug={post.slug}
+                  authorName={post.author?.full_name ?? post.author?.email ?? null}
+                />
               </div>
             </div>
 
