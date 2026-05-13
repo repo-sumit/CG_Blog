@@ -18,10 +18,27 @@ const PATH_RE = new RegExp(`^${UUID}/(?:${UUID}|drafts)/[^/].*$`, "i");
  * fresh signed URL. Embedded into post HTML as `/api/media/file?path=...`,
  * so video/audio/image URLs never go stale even when the post is years old.
  *
- * Access control is by domain membership (middleware redirects non-domain
- * users before this handler runs). Paths inside posts are referenced only
- * from posts visible to the user via RLS, and paths themselves contain
- * unguessable UUIDs — sufficient for an internal team blog.
+ * Access control — two-tier:
+ *
+ *   1. Signed-in `@convegenius.ai` users: anything goes (middleware already
+ *      vetted the session). They can stream their own drafts + anyone's
+ *      published media.
+ *
+ *   2. Anonymous public readers: allowed ONLY if the storage path belongs
+ *      to a `media_assets` row whose `post_id` is set AND the post is
+ *      `published`. This is what makes embedded images / audio / video
+ *      load inside a published post for visitors who never sign in.
+ *      Drafts + orphan media (no post_id) stay locked.
+ *
+ *   3. Anonymous + path doesn't resolve to a published post → 401. The
+ *      route never falls through to "everyone can read anything"; the
+ *      lookup is the gate.
+ *
+ * Why service-client for the lookup: `media_assets` RLS scopes reads to
+ * the owner. Public readers need to see "is this file attached to a
+ * published post" without being the owner of the file. Service-client
+ * bypasses RLS for that one specific check — we then enforce our own
+ * stricter rule (path → media_asset → post.status === 'published').
  */
 export async function GET(request: NextRequest) {
   const path = request.nextUrl.searchParams.get("path");
@@ -32,11 +49,28 @@ export async function GET(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
-  // Service client bypasses storage RLS so that viewers (not the owner) can
-  // also stream media embedded in published posts. RLS on posts still gates
-  // whether viewers can SEE the page containing the URL.
+  // Anonymous viewer path. Validate that the storage path belongs to a
+  // media asset attached to a published post before allowing any access.
+  if (!user) {
+    const service = createSupabaseServiceClient();
+    const { data: row } = await service
+      .from("media_assets")
+      .select("post_id, post:posts!media_assets_post_id_fkey(status)")
+      .eq("storage_path", path)
+      .maybeSingle();
+    type AssetWithPost = {
+      post_id: string | null;
+      post: { status: string } | { status: string }[] | null;
+    };
+    const asset = row as AssetWithPost | null;
+    const post = Array.isArray(asset?.post) ? asset?.post[0] : asset?.post;
+    if (!asset?.post_id || post?.status !== "published") {
+      return new NextResponse("Not found", { status: 404 });
+    }
+  }
+
+  // Resolve the signed URL (auth'd OR validated-anonymous path reaches here).
   const service = createSupabaseServiceClient();
   const { data: signed, error } = await service.storage
     .from(BUCKET)
@@ -48,7 +82,11 @@ export async function GET(request: NextRequest) {
   return NextResponse.redirect(signed.signedUrl, {
     status: 302,
     headers: {
-      "Cache-Control": `private, max-age=${CACHE_MAX_AGE}`,
+      // `public` so shared CDNs (Cloudflare in front of Vercel) can also
+      // cache the redirect for anonymous viewers. Signed-in users get the
+      // same TTL — private vs public doesn't matter because the cached
+      // entry is the redirect, not the underlying bytes.
+      "Cache-Control": `public, max-age=${CACHE_MAX_AGE}, s-maxage=${CACHE_MAX_AGE}`,
     },
   });
 }
