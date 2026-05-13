@@ -29,7 +29,16 @@ export interface PublicPost extends PostRow {
   tags: Pick<TagRow, "id" | "name" | "slug">[];
   /** Aggregate post_views count — server-computed, never inferred client-side. */
   viewCount: number;
+  /**
+   * Signed thumbnail URL (1-hour TTL). `null` when the post has no
+   * cover_media_id or the asset can't be signed — callers should render the
+   * `<PostThumbnail>` placeholder in that case.
+   */
+  coverUrl: string | null;
 }
+
+const COVER_BUCKET = "blog-media";
+const COVER_SIGNED_TTL_SECONDS = 60 * 60; // 1h — matches the public landing's force-dynamic cadence.
 
 const PUBLIC_SELECT = `
   id, author_id, title, slug, excerpt, content_html,
@@ -65,7 +74,52 @@ function normalize(row: Record<string, unknown>): PublicPost {
       : null,
     tags,
     viewCount: 0, // back-filled by `attachViewCounts` after the join.
+    coverUrl: null, // back-filled by `attachCoverUrls` after the lookup.
   };
+}
+
+/**
+ * Resolves a public-readable signed URL for each post's `cover_media_id`.
+ * Two round-trips: one batch select against `media_assets`, one batch signed
+ * URL call. We use the service client because the bucket is private + RLS-
+ * gated; landing visitors are anonymous so they can't hit the storage API
+ * directly. The signed URL is short-lived (1h), which is fine because the
+ * landing page is `force-dynamic` and re-fetches per render.
+ */
+async function attachCoverUrls(posts: PublicPost[]): Promise<PublicPost[]> {
+  const withCover = posts.filter((p) => p.cover_media_id);
+  if (withCover.length === 0) return posts;
+
+  const service = createSupabaseServiceClient();
+  const mediaIds = Array.from(
+    new Set(withCover.map((p) => p.cover_media_id as string)),
+  );
+
+  const { data: assets } = await service
+    .from("media_assets")
+    .select("id, storage_path")
+    .in("id", mediaIds);
+  const pathById = new Map<string, string>();
+  for (const r of (assets ?? []) as { id: string; storage_path: string | null }[]) {
+    if (r.storage_path) pathById.set(r.id, r.storage_path);
+  }
+  if (pathById.size === 0) return posts;
+
+  const paths = Array.from(pathById.values());
+  const { data: signed } = await service.storage
+    .from(COVER_BUCKET)
+    .createSignedUrls(paths, COVER_SIGNED_TTL_SECONDS);
+  const urlByPath = new Map<string, string>();
+  for (const s of (signed ?? []) as { path: string | null; signedUrl: string }[]) {
+    if (s.path) urlByPath.set(s.path, s.signedUrl);
+  }
+
+  return posts.map((p) => {
+    if (!p.cover_media_id) return p;
+    const path = pathById.get(p.cover_media_id);
+    const url = path ? (urlByPath.get(path) ?? null) : null;
+    return { ...p, coverUrl: url };
+  });
 }
 
 /**
@@ -108,7 +162,8 @@ export async function listPublicPosts(limit = 30): Promise<PublicPost[]> {
     return [];
   }
   const posts = (data ?? []).map((r: unknown) => normalize(r as Record<string, unknown>));
-  return attachViewCounts(posts);
+  const withCounts = await attachViewCounts(posts);
+  return attachCoverUrls(withCounts);
 }
 
 export async function getPublicPostBySlug(slug: string): Promise<PublicPost | null> {
@@ -122,7 +177,8 @@ export async function getPublicPostBySlug(slug: string): Promise<PublicPost | nu
   if (error || !data) return null;
   const post = normalize(data as Record<string, unknown>);
   const [withCount] = await attachViewCounts([post]);
-  return withCount ?? post;
+  const [withCover] = await attachCoverUrls([withCount ?? post]);
+  return withCover ?? withCount ?? post;
 }
 
 export async function listPublicTags(): Promise<{ id: string; name: string; slug: string }[]> {
