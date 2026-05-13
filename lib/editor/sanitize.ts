@@ -40,7 +40,12 @@ export function sanitizeHtml(input: string): string {
     if (!src || !EMBED_HOST_RE.test(src)) return "";
     // Strip event handlers from kept iframes; force allow/sandbox attributes.
     const cleanAttrs = attrs.replace(ON_HANDLER_RE, "");
-    return `<iframe${cleanAttrs} loading="lazy" referrerpolicy="no-referrer"></iframe>`;
+    // `strict-origin-when-cross-origin` keeps the post path private while
+    // still sending the bare origin — YouTube/Vimeo need that origin in the
+    // Referer header to authorise unlisted / domain-restricted embeds. The
+    // previous `no-referrer` stripped Referer entirely, which caused
+    // YouTube error 153 on otherwise-embeddable unlisted videos.
+    return `<iframe${cleanAttrs} loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
   });
 
   html = html.replace(ON_HANDLER_RE, "");

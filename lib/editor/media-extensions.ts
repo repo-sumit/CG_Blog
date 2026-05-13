@@ -220,7 +220,13 @@ export const EmbedBlock = Node.create({
             "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen",
           allowfullscreen: "allowfullscreen",
           loading: "lazy",
-          referrerpolicy: "no-referrer",
+          // `strict-origin-when-cross-origin` sends just the origin (not the
+          // full URL) to the embed provider. YouTube and Vimeo use the
+          // Referer header to authorise unlisted / domain-restricted videos;
+          // the previous `no-referrer` setting stripped it entirely, which
+          // triggered YouTube error 153 (player config error) on otherwise-
+          // embeddable unlisted videos.
+          referrerpolicy: "strict-origin-when-cross-origin",
         },
       ],
     ];
