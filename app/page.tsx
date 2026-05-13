@@ -201,10 +201,10 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
                   {filtered.length} {filtered.length === 1 ? "post" : "posts"}
                 </div>
               </div>
-              {/* YouTube-style tile grid: 1-col mobile, 2-col tablet, 2-col
-                  on large screens too so each card sits at ~half the page
-                  width (matches the design reference). xl bumps to 3. */}
-              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              {/* YouTube-style tile grid: 1-col mobile, 2-col tablet, 3-col
+                  on desktop (matches the design-system 3-column article grid
+                  spec). */}
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {filtered.map((p) => <PublicPostCard key={p.id} post={p} />)}
               </div>
             </>
