@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Clock, Eye } from "lucide-react";
 import { publicEnv } from "@/lib/env";
+import { getPostOgImageUrl } from "@/lib/seo/get-og-image-url";
 import {
   getPublicPostBySlug,
   listPublicPosts,
@@ -37,15 +38,12 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const base = (publicEnv.appUrl || "").replace(/\/$/, "");
   const url = `${base}/posts/${post.slug}`;
 
-  // OG image strategy: point at the stable `/api/og-image/[slug]` proxy
-  // route. The proxy itself 302s to a fresh Supabase signed URL on each
-  // request (or to /og-default.png when no cover is set). Crawlers cache
-  // the IMAGE BYTES at their side after the redirect resolves, so subsequent
-  // refetches stay valid forever — no signed-URL TTL surprises like the
-  // previous direct-Supabase setup had.
-  const ogImage = post.coverUrl
-    ? `${base}/api/og-image/${encodeURIComponent(post.slug)}`
-    : `${base}/og-default.png`;
+  // OG image — centralised in `lib/seo/get-og-image-url.ts`. Posts with a
+  // cover image route through the stable `/api/og-image/[slug]` proxy; the
+  // proxy 302s to a fresh Supabase signed URL on each crawler hit. Posts
+  // without a cover get `/og-default.png`. Crawlers cache image BYTES after
+  // the redirect resolves so signed-URL TTL never matters past first share.
+  const ogImage = getPostOgImageUrl(post);
 
   const description = post.excerpt ?? `New signal from ${post.author?.full_name ?? "team Dhurandhar"}`;
   const authorName = post.author?.full_name ?? post.author?.email ?? undefined;

@@ -17,13 +17,45 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Panel, PanelBody } from "@/components/portal/Panel";
 import { Input } from "@/components/ui/Input";
 import { PostThumbnail } from "@/components/landing/PostThumbnail";
+import { publicEnv } from "@/lib/env";
+import { getAbsoluteImageUrl } from "@/lib/seo/get-og-image-url";
 import { cn } from "@/lib/utils/cn";
 
 export const dynamic = "force-dynamic";
 
+// Full OG + Twitter block so the root URL also unfurls with a thumbnail when
+// shared on WhatsApp / Slack / LinkedIn. Falls back to the same brand image
+// the post pages use when a post has no cover.
+const landingTitle = "CG SIGNAL · Team Blog Portal";
+const landingDescription =
+  "Daily work signals, product notes, design logs, engineering updates, and team reflections from ConveGenius.";
+const landingImage = getAbsoluteImageUrl(null);
+
 export const metadata: Metadata = {
-  title: "CG Signal — Team Blog Portal",
-  description: "Daily signals from team Dhurandhar — notes, retros, launches, experiments.",
+  title: landingTitle,
+  description: landingDescription,
+  alternates: { canonical: publicEnv.appUrl },
+  openGraph: {
+    title: landingTitle,
+    description: landingDescription,
+    url: publicEnv.appUrl,
+    siteName: "CG SIGNAL",
+    type: "website",
+    images: [
+      {
+        url: landingImage,
+        width: 1200,
+        height: 630,
+        alt: "CG SIGNAL · Team Blog Portal",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: landingTitle,
+    description: landingDescription,
+    images: [landingImage],
+  },
 };
 
 interface SearchParams {
