@@ -268,6 +268,35 @@
     box-shadow: 0 0 16px rgba(53, 208, 127, 0.55);
   }
 
+  /* ──────── Post grid — fluid, zoom-resilient ──────────
+     `auto-fit` reflows the column count as the available width changes,
+     and `min(100%, 320px)` makes the floor shrink to 100% on viewports
+     narrower than 320 px so the card never forces a horizontal scroll.
+     The `gap` clamps between 16 px (mobile) and 24 px (desktop).
+     Result, at typical breakpoints inside the `container` wrapper
+     (which caps at 1536 px):
+       <480 px  → 1 col
+       768 px   → 2 cols
+       1280 px  → 3 cols
+       1536 px+ → 4 cols (capped by the container, not the grid)
+     Browser zoom reflows just like a viewport change because the grid
+     reads the live container width rather than a hard breakpoint. */
+  .post-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: clamp(16px, 2vw, 24px);
+    width: 100%;
+  }
+  /* Variant for grids that live inside a narrow column (the post-detail
+     "More from {author}" section uses `max-w-3xl`). Smaller floor so 2
+     cards still fit at ≥640 px while collapsing to 1 col on mobile. */
+  .post-grid-tight {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 12px;
+    width: 100%;
+  }
+
   /* font helpers — these resolve to the CSS variables wired in app/layout.tsx */
   .font-ui { font-family: var(--font-ui), ui-monospace, SFMono-Regular, Menlo, monospace; }
   .font-hero { font-family: var(--font-hero), system-ui, sans-serif; }

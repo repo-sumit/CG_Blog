@@ -249,7 +249,7 @@ export default async function PublicPostPage({ params }: { params: { slug: strin
               <div className="mb-3 text-[11px] uppercase tracking-wider text-portal-text-muted">
                 More from {post.author?.full_name || post.author?.email}
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="post-grid-tight">
                 {related.map((p) => (
                   <Panel key={p.id} variant="raised">
                     <PanelBody className="p-4">

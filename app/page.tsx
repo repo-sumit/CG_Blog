@@ -245,10 +245,14 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
                   {filtered.length} {filtered.length === 1 ? "post" : "posts"}
                 </div>
               </div>
-              {/* YouTube-style tile grid: 1-col mobile, 2-col tablet, 3-col
-                  on desktop (matches the design-system 3-column article grid
-                  spec). */}
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Fluid auto-fit grid (`.post-grid` in globals.css) — reflows
+                  by available width instead of hard breakpoints, so the
+                  card count tracks browser zoom and ultra-wide displays
+                  alike. The `container` wrapper above caps the section at
+                  1536px, which is what limits us to 4 cards on the widest
+                  desktops. See `docs/frontend-cache-audit.md` siblings for
+                  the design-system grid spec. */}
+              <div className="post-grid">
                 {filtered.map((p) => <PublicPostCard key={p.id} post={p} />)}
               </div>
             </>
@@ -303,7 +307,7 @@ function PublicPostCard({
   post: Awaited<ReturnType<typeof listPublicPosts>>[number];
 }) {
   return (
-    <article className="group flex flex-col overflow-hidden rounded-md border border-portal-border-soft bg-portal-panel transition-colors hover:border-portal-border-muted">
+    <article className="group flex min-w-0 flex-col overflow-hidden rounded-md border border-portal-border-soft bg-portal-panel transition-colors hover:border-portal-border-muted">
       <Link href={`/posts/${post.slug}`} className="flex flex-1 flex-col">
         {/* Thumbnail at the top — real cover if the author picked one, otherwise
             a slug-deterministic placeholder that still feels on-brand. */}
