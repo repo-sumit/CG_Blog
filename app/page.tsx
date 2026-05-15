@@ -130,7 +130,7 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
                   CG Signal · Team Blog Newsletter
                 </div>
                 <h1 className="font-hero text-5xl font-bold uppercase leading-[0.95] tracking-tighter text-portal-text sm:text-7xl">
-                  The team
+                  ConveGenius
                   <br />
                   signal feed.
                 </h1>
