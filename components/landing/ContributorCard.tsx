@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Github, Linkedin, type LucideIcon } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { teamMetaFor } from "@/lib/team";
@@ -42,6 +42,24 @@ export function ContributorCard({ stat }: { stat: ContributorStats }) {
               </div>
             </>
           )}
+          {meta && (meta.linkedin || meta.github) ? (
+            <div className="mt-2 flex items-center gap-1">
+              {meta.linkedin ? (
+                <SocialIconLink
+                  href={meta.linkedin}
+                  label={`${displayName} on LinkedIn`}
+                  icon={Linkedin}
+                />
+              ) : null}
+              {meta.github ? (
+                <SocialIconLink
+                  href={meta.github}
+                  label={`${displayName} on GitHub`}
+                  icon={Github}
+                />
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <Badge variant="outline" className="shrink-0">
           {roleLabel(stat.profile.role)}
@@ -105,5 +123,36 @@ export function ContributorCard({ stat }: { stat: ContributorStats }) {
         )}
       </div>
     </article>
+  );
+}
+
+/**
+ * Compact social-profile chip — 28×28 hit area (touch-friendly) with a small
+ * 14px monochrome icon. Hover lifts the icon from the muted state to the
+ * primary text colour and paints a faint panel-soft tile behind it, so the
+ * interaction reads as a button without going neon. Opens in a new tab; the
+ * `rel` pair drops referrer + opener so the destination can't tamper with
+ * the originating window.
+ */
+function SocialIconLink({
+  href,
+  label,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label}
+      title={label}
+      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-portal-text-muted transition-colors hover:bg-portal-panel-soft hover:text-portal-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-portal-blue focus-visible:ring-offset-2 focus-visible:ring-offset-portal-panel"
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+    </a>
   );
 }

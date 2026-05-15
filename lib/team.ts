@@ -21,6 +21,16 @@ export interface TeamMember {
    * else.
    */
   displayOrder: number;
+  /**
+   * Public LinkedIn profile. Rendered as a small icon link on the
+   * contributor card. Optional — omit for teammates without a profile.
+   */
+  linkedin?: string;
+  /**
+   * Public GitHub profile. Renders only when set so we never ship empty
+   * placeholders.
+   */
+  github?: string;
 }
 
 export const TEAM_META: Record<string, TeamMember> = {
@@ -29,30 +39,36 @@ export const TEAM_META: Record<string, TeamMember> = {
     pod: "Product",
     topics: ["Product", "Launch", "Experiment"],
     displayOrder: 1,
+    linkedin: "https://www.linkedin.com/in/adityacbcc/",
   },
   "sumit.kumar@convegenius.ai": {
     designation: "Product Associate",
     pod: "HP Higher ED",
     topics: ["Product", "AI", "Launch"],
     displayOrder: 2,
+    linkedin: "https://www.linkedin.com/in/sumit-ai-product/",
+    github: "https://github.com/repo-sumit",
   },
   "om.kumar@convegenius.ai": {
     designation: "Senior UI/UX Designer",
     pod: "Design",
     topics: ["Design", "Product", "Research"],
     displayOrder: 3,
+    linkedin: "https://www.linkedin.com/in/om-kumar-707762201/",
   },
   "insha.naseem@convegenius.ai": {
     designation: "Design Intern",
     pod: "Design",
     topics: ["Design", "Research"],
     displayOrder: 4,
+    linkedin: "https://www.linkedin.com/in/insha-naseem-753174199/",
   },
   "aryan.singh@convegenius.ai": {
     designation: "Product Intern",
     pod: "Product",
     topics: ["Product", "Research"],
     displayOrder: 5,
+    linkedin: "https://www.linkedin.com/in/aryan-singh0420/",
   },
 };
 
