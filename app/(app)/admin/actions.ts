@@ -1,11 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireManager } from "@/lib/auth/guards";
 import { slugify } from "@/lib/utils/slugs";
 import type { ProfileRow } from "@/lib/db/types";
+import { PUBLIC_FEED_TAG } from "@/lib/db/public";
 
 type ActionResult = { ok: boolean; error?: string };
 
@@ -150,6 +151,7 @@ export async function createTag(input: z.infer<typeof TagInput>): Promise<Action
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/tags");
   revalidatePath("/");
+  revalidateTag(PUBLIC_FEED_TAG);
   return { ok: true };
 }
 
@@ -161,6 +163,7 @@ export async function deleteTag(id: string): Promise<ActionResult> {
   const { error } = await supabase.from("tags").delete().eq("id", parsed.data);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/tags");
+  revalidateTag(PUBLIC_FEED_TAG);
   return { ok: true };
 }
 
@@ -196,5 +199,6 @@ export async function setPostStatus(
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin");
   revalidatePath("/");
+  revalidateTag(PUBLIC_FEED_TAG);
   return { ok: true };
 }

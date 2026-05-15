@@ -1,7 +1,20 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { PostRow, ProfileRow, TagRow } from "@/lib/db/types";
 import { REACTION_EMOJIS, type ReactionEmoji } from "@/lib/reactions";
+import { teamDisplayOrderFor } from "@/lib/team";
+
+/**
+ * Cache tag for the public-feed queries (listPublicPosts, listPublicTags,
+ * listContributorStats). Editor + admin server actions call
+ * `revalidateTag(PUBLIC_FEED_TAG)` whenever a publish / unpublish / delete /
+ * tag change happens, so the 60s TTL is just the fallback for non-write
+ * events (view counts, reactions tallied into card footers). See
+ * `docs/frontend-cache-audit.md` for the full rationale.
+ */
+export const PUBLIC_FEED_TAG = "public-feed";
+const PUBLIC_FEED_REVALIDATE = 60;
 
 // Re-export the reaction constants so existing callers of `@/lib/db/public`
 // keep working. The real definition is in `@/lib/reactions` (no server-only),
@@ -29,6 +42,10 @@ export interface PublicPost extends PostRow {
   tags: Pick<TagRow, "id" | "name" | "slug">[];
   /** Aggregate post_views count — server-computed, never inferred client-side. */
   viewCount: number;
+  /** Aggregate reactions count — server-computed across all emojis. */
+  reactionCount: number;
+  /** Aggregate comments count — server-computed, excludes soft-deleted rows. */
+  commentCount: number;
   /**
    * Signed thumbnail URL (1-hour TTL). `null` when the post has no
    * cover_media_id or the asset can't be signed — callers should render the
@@ -74,6 +91,8 @@ function normalize(row: Record<string, unknown>): PublicPost {
       : null,
     tags,
     viewCount: 0, // back-filled by `attachViewCounts` after the join.
+    reactionCount: 0, // back-filled by `attachEngagementCounts`.
+    commentCount: 0, // back-filled by `attachEngagementCounts`.
     coverUrl: null, // back-filled by `attachCoverUrls` after the lookup.
   };
 }
@@ -149,7 +168,49 @@ async function attachViewCounts(posts: PublicPost[]): Promise<PublicPost[]> {
   return posts.map((p) => ({ ...p, viewCount: tally.get(p.id) ?? 0 }));
 }
 
-export async function listPublicPosts(limit = 30): Promise<PublicPost[]> {
+/**
+ * Stitches `reactions` + `comments` counts onto the list. Two batched queries
+ * (one per table) keep this O(1) regardless of how many posts are on screen.
+ * We pull just the `post_id` column so the round-trip stays small even on
+ * popular posts. Soft-deleted comments are excluded by the `deleted_at` filter
+ * so the count on the card matches what readers see in the thread.
+ */
+async function attachEngagementCounts(posts: PublicPost[]): Promise<PublicPost[]> {
+  if (posts.length === 0) return posts;
+  const service = createSupabaseServiceClient();
+  const ids = posts.map((p) => p.id);
+
+  const [reactRes, commentRes] = await Promise.all([
+    service.from("reactions").select("post_id").in("post_id", ids),
+    service.from("comments").select("post_id").in("post_id", ids).is("deleted_at", null),
+  ]);
+
+  const reactTally = new Map<string, number>();
+  if (reactRes.error) {
+    console.error("[attachEngagementCounts:reactions]", reactRes.error);
+  } else {
+    for (const r of (reactRes.data ?? []) as { post_id: string }[]) {
+      reactTally.set(r.post_id, (reactTally.get(r.post_id) ?? 0) + 1);
+    }
+  }
+
+  const commentTally = new Map<string, number>();
+  if (commentRes.error) {
+    console.error("[attachEngagementCounts:comments]", commentRes.error);
+  } else {
+    for (const r of (commentRes.data ?? []) as { post_id: string }[]) {
+      commentTally.set(r.post_id, (commentTally.get(r.post_id) ?? 0) + 1);
+    }
+  }
+
+  return posts.map((p) => ({
+    ...p,
+    reactionCount: reactTally.get(p.id) ?? 0,
+    commentCount: commentTally.get(p.id) ?? 0,
+  }));
+}
+
+async function listPublicPostsUncached(limit = 30): Promise<PublicPost[]> {
   const service = createSupabaseServiceClient();
   const { data, error } = await service
     .from("posts")
@@ -162,9 +223,26 @@ export async function listPublicPosts(limit = 30): Promise<PublicPost[]> {
     return [];
   }
   const posts = (data ?? []).map((r: unknown) => normalize(r as Record<string, unknown>));
-  const withCounts = await attachViewCounts(posts);
-  return attachCoverUrls(withCounts);
+  const withViews = await attachViewCounts(posts);
+  const withEngagement = await attachEngagementCounts(withViews);
+  return attachCoverUrls(withEngagement);
 }
+
+/**
+ * Cached wrapper around `listPublicPostsUncached`. One cache key per `limit`
+ * value so the landing (limit=60) and post detail's "related posts" call
+ * (limit=8) don't share an undersized result. `revalidateTag(PUBLIC_FEED_TAG)`
+ * from publish/delete actions invalidates every limit variant at once.
+ *
+ * NOTE: cover URLs returned here are signed for 1h. Even with a 60s
+ * revalidate window, the URLs returned from cache are still well within
+ * their TTL, so no risk of serving expired URLs to crawlers.
+ */
+export const listPublicPosts = unstable_cache(
+  async (limit = 30) => listPublicPostsUncached(limit),
+  ["lib/db/public:listPublicPosts"],
+  { revalidate: PUBLIC_FEED_REVALIDATE, tags: [PUBLIC_FEED_TAG] },
+);
 
 export async function getPublicPostBySlug(slug: string): Promise<PublicPost | null> {
   const service = createSupabaseServiceClient();
@@ -176,12 +254,13 @@ export async function getPublicPostBySlug(slug: string): Promise<PublicPost | nu
     .maybeSingle();
   if (error || !data) return null;
   const post = normalize(data as Record<string, unknown>);
-  const [withCount] = await attachViewCounts([post]);
-  const [withCover] = await attachCoverUrls([withCount ?? post]);
-  return withCover ?? withCount ?? post;
+  const [withViews] = await attachViewCounts([post]);
+  const [withEngagement] = await attachEngagementCounts([withViews ?? post]);
+  const [withCover] = await attachCoverUrls([withEngagement ?? withViews ?? post]);
+  return withCover ?? withEngagement ?? withViews ?? post;
 }
 
-export async function listPublicTags(): Promise<{ id: string; name: string; slug: string }[]> {
+async function listPublicTagsUncached(): Promise<{ id: string; name: string; slug: string }[]> {
   const service = createSupabaseServiceClient();
   // Only return tags actually used by at least one published post — keeps the
   // category strip from showing empty/dead tags.
@@ -207,6 +286,17 @@ export async function listPublicTags(): Promise<{ id: string; name: string; slug
   }
   return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
+
+/**
+ * Cached public tags. Shares the `PUBLIC_FEED_TAG` invalidation key with
+ * `listPublicPosts` so an admin tag-edit or a post publish refreshes both
+ * without per-call wiring.
+ */
+export const listPublicTags = unstable_cache(
+  listPublicTagsUncached,
+  ["lib/db/public:listPublicTags"],
+  { revalidate: PUBLIC_FEED_REVALIDATE, tags: [PUBLIC_FEED_TAG] },
+);
 
 export async function listPublicAuthors(): Promise<PublicAuthor[]> {
   const service = createSupabaseServiceClient();
@@ -250,17 +340,27 @@ export interface ContributorStats {
  * Joins posts → tags → profile, aggregates per author. Cheap enough at our
  * scale that we don't bother with a SQL view.
  */
-export async function listContributorStats(): Promise<ContributorStats[]> {
+async function listContributorStatsUncached(): Promise<ContributorStats[]> {
   const service = createSupabaseServiceClient();
 
-  // 1. All editor profiles (author + manager) from the allowlist.
+  // 1. All editor profiles (author + manager) from the allowlist. We pull
+  // unsorted and re-order in JS using `TEAM_META.displayOrder` so the same
+  // canonical order applies everywhere — contributor grid on landing,
+  // dashboard team panel, admin schedule, etc. SQL `.order()` can't express
+  // an editorial ranking against an in-code config without a join table.
   const { data: profileRows } = await service
     .from("profiles")
     .select("id, full_name, email, avatar_url, role")
-    .in("role", ["author", "manager"])
-    .order("full_name", { ascending: true });
+    .in("role", ["author", "manager"]);
 
-  const profiles = (profileRows ?? []) as unknown as PublicAuthor[];
+  const profiles = ((profileRows ?? []) as unknown as PublicAuthor[]).slice().sort((a, b) => {
+    const oa = teamDisplayOrderFor(a.email);
+    const ob = teamDisplayOrderFor(b.email);
+    if (oa !== ob) return oa - ob;
+    // Tie-break: alphabetical full_name so unknown teammates have a stable
+    // order amongst themselves and don't flip on every render.
+    return (a.full_name ?? a.email ?? "").localeCompare(b.full_name ?? b.email ?? "");
+  });
   if (profiles.length === 0) return [];
 
   // 2. All published posts authored by them, with their tags.
@@ -317,6 +417,17 @@ export async function listContributorStats(): Promise<ContributorStats[]> {
     };
   });
 }
+
+/**
+ * Cached contributor stats. Joins are expensive at this query's shape, so
+ * caching the result is the highest-leverage of the three public queries.
+ * Same revalidation tag as the rest of the public feed.
+ */
+export const listContributorStats = unstable_cache(
+  listContributorStatsUncached,
+  ["lib/db/public:listContributorStats"],
+  { revalidate: PUBLIC_FEED_REVALIDATE, tags: [PUBLIC_FEED_TAG] },
+);
 
 // ============================================================
 // Comments + reactions (public reads)

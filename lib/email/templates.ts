@@ -50,7 +50,7 @@ What you won't get:
   · Tracking pixels
   · Spam, ever
 
-Open the portal: ${appUrl}
+Open the newsletter: ${appUrl}
 Unsubscribe anytime: ${unsubscribeUrl}
 
 — Team Dhurandhar`,
@@ -97,7 +97,7 @@ Unsubscribe anytime: ${unsubscribeUrl}
           </tr>
           <tr>
             <td align="left" style="padding-bottom:8px;">
-              ${primaryButton("Open the portal →", appUrl)}
+              ${primaryButton("Open the newsletter →", appUrl)}
             </td>
           </tr>
         </table>
@@ -272,7 +272,7 @@ function shell(bodyHtml: string, { appUrl, unsubscribeUrl }: BaseTemplateOpts) {
                 <br />
                 <a href="${esc(unsubscribeUrl)}" style="color:#5f5f55;text-decoration:underline;">Unsubscribe</a>
                 &nbsp;·&nbsp;
-                <a href="${esc(appUrl)}" style="color:#5f5f55;text-decoration:underline;">Open portal</a>
+                <a href="${esc(appUrl)}" style="color:#5f5f55;text-decoration:underline;">Open newsletter</a>
               </div>
             </td>
           </tr>

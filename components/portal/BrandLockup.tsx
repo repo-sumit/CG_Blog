@@ -39,7 +39,7 @@ export function BrandLockup({ size = "md", href, withSubtitle = true, className 
         </span>
         {withSubtitle ? (
           <span className={cn("mt-1 font-ui uppercase text-portal-text-muted", s.sub)} style={{ letterSpacing: "0.16em" }}>
-            Team&nbsp;Blog&nbsp;Portal
+            Team&nbsp;Blog&nbsp;Newsletter
           </span>
         ) : null}
       </span>

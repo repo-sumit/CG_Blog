@@ -14,6 +14,13 @@ import {
 import { editorExtensions } from "@/lib/editor/extensions";
 import { sanitizePastedHtml } from "@/lib/editor/paste-sanitize";
 import { WEEKLY_TEMPLATE } from "@/lib/editor/template";
+import {
+  clearLocalDraft,
+  isLocalDraftNewerThan,
+  loadLocalDraft,
+  saveLocalDraft,
+  type LocalDraftSnapshot,
+} from "@/lib/editor/local-draft";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -55,6 +62,9 @@ interface PostImage {
 // Autosave fires 15s after the user stops typing — long enough that we're not
 // thrashing Supabase, short enough that crashes don't lose meaningful work.
 const AUTOSAVE_MS = 15_000;
+// Local draft snapshot is much cheaper than the server round-trip, so we
+// fire it five times faster. Worst-case lost work between two writes is ~3s.
+const LOCAL_BACKUP_MS = 3_000;
 
 export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
   const router = useRouter();
@@ -91,6 +101,11 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
   const [creatingTag, setCreatingTag] = useState(false);
   const MAX_TAGS_PER_POST = 10;
   const MAX_TAG_LENGTH = 30;
+
+  // Local-storage draft restore prompt: holds the newer-than-server snapshot
+  // we found on mount, until the user explicitly restores or discards it.
+  // `null` after either action so the banner unmounts.
+  const [restoreCandidate, setRestoreCandidate] = useState<LocalDraftSnapshot | null>(null);
 
   const editor = useEditor({
     extensions: editorExtensions(),
@@ -216,6 +231,14 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
       if (isNew && res.id) {
         window.history.replaceState(null, "", `/editor/${res.id}`);
       }
+      // Server snapshot is now canonical — drop the local backup so the
+      // "newer local copy" prompt can't fire on a future mount unless the
+      // user edits again. New posts: clear under the `new` key AND the
+      // freshly-assigned id key so neither slot lingers.
+      if (!dirtyDuringSave.current) {
+        clearLocalDraft(isNew ? undefined : postId);
+        if (isNew && res.id) clearLocalDraft(res.id);
+      }
       return res;
     },
     [editor, title, excerpt, postId, status, scheduledFor, coverMediaId, selectedTagIds, isNew],
@@ -235,6 +258,81 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     };
   }, [saveState, handleSave]);
+
+  // Local-storage backup loop. Independent of server autosave so a crash
+  // between two server saves leaves at most ~3s of work missing. See
+  // `docs/frontend-cache-audit.md` for the full storage contract.
+  const localBackupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!editor) return;
+    if (saveState !== "unsaved") return;
+    if (localBackupTimer.current) clearTimeout(localBackupTimer.current);
+    localBackupTimer.current = setTimeout(() => {
+      saveLocalDraft(postId, {
+        title,
+        excerpt: excerpt?.trim() || null,
+        contentJSON: JSON.parse(JSON.stringify(editor.getJSON())),
+        contentHTML: editor.getHTML(),
+        status,
+        scheduledFor,
+        tagIds: [...selectedTagIds],
+        coverMediaId,
+        savedAt: new Date().toISOString(),
+      });
+    }, LOCAL_BACKUP_MS);
+    return () => {
+      if (localBackupTimer.current) clearTimeout(localBackupTimer.current);
+    };
+  }, [
+    editor,
+    saveState,
+    postId,
+    title,
+    excerpt,
+    status,
+    scheduledFor,
+    selectedTagIds,
+    coverMediaId,
+  ]);
+
+  // Mount: look for a local snapshot newer than the server's last update.
+  // Only fires once per editor instance — guarded by a ref so React 18
+  // StrictMode's double-invoke doesn't re-prompt.
+  const restoreChecked = useRef(false);
+  useEffect(() => {
+    if (restoreChecked.current) return;
+    restoreChecked.current = true;
+    const snapshot = loadLocalDraft(initialPost?.id);
+    if (!snapshot) return;
+    if (isLocalDraftNewerThan(snapshot, initialPost?.updated_at ?? null)) {
+      setRestoreCandidate(snapshot);
+    } else {
+      // Server is at least as fresh — discard the stale local copy so we
+      // don't keep re-prompting on future mounts.
+      clearLocalDraft(initialPost?.id);
+    }
+  }, [initialPost?.id, initialPost?.updated_at]);
+
+  const handleRestoreLocalDraft = useCallback(() => {
+    const snap = restoreCandidate;
+    if (!snap || !editor) return;
+    setTitle(snap.title ?? "");
+    setExcerpt(snap.excerpt ?? "");
+    setSelectedTagIds(snap.tagIds ?? []);
+    setCoverMediaId(snap.coverMediaId ?? null);
+    if (snap.scheduledFor !== undefined) setScheduledFor(snap.scheduledFor ?? null);
+    if (snap.contentJSON) {
+      editor.commands.setContent(snap.contentJSON as object);
+    }
+    setSaveState("unsaved");
+    setRestoreCandidate(null);
+    toast.success("Local draft restored. Save to push it to the server.");
+  }, [restoreCandidate, editor]);
+
+  const handleDiscardLocalDraft = useCallback(() => {
+    clearLocalDraft(initialPost?.id);
+    setRestoreCandidate(null);
+  }, [initialPost?.id]);
 
   const insertTemplate = useCallback(() => {
     if (!editor) return;
@@ -563,6 +661,45 @@ export function PostEditor({ initialPost, tags, role, requireReview }: Props) {
           {saveState === "error" && <span className="text-destructive">Save failed</span>}
         </span>
       </div>
+
+      {/* Local-draft restore banner. Renders only when we found a newer
+          local snapshot than what the server has — typically after a tab
+          crash. Discard clears the snapshot so it can't haunt later mounts. */}
+      {restoreCandidate && (
+        <div
+          role="status"
+          className="mb-3 flex flex-col gap-2 rounded-md border border-portal-yellow/40 bg-portal-yellow/5 p-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-wider text-portal-yellow">
+              Unsaved local changes
+            </div>
+            <p className="mt-0.5 text-sm text-portal-text-muted">
+              We found a draft on this device newer than the server copy.
+              Restore it, or discard to keep editing the server version.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleDiscardLocalDraft}
+            >
+              Discard
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleRestoreLocalDraft}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Restore local
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Publish action bar — horizontal on desktop, full-width stacked on mobile. */}
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3">

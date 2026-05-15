@@ -21,6 +21,8 @@ import { CommentsSection } from "@/components/comments/CommentsSection";
 import { ReactionsBar } from "@/components/reactions/ReactionsBar";
 import { PostViewTracker } from "@/components/analytics/PostViewTracker";
 import { PostShareButton } from "@/components/posts/PostShareButton";
+import { SubscribeSection } from "@/components/landing/SubscribeSection";
+import { SubscribeMiniCta } from "@/components/landing/SubscribeMiniCta";
 import { formatPostDate } from "@/lib/utils/dates";
 import { roleLabel } from "@/lib/auth/roles";
 import { sanitizeHtml } from "@/lib/editor/sanitize";
@@ -91,6 +93,15 @@ export default async function PublicPostPage({ params }: { params: { slug: strin
 
   const safeHtml = sanitizeHtml(post.content_html);
   const isAdmin = session?.profile.role === "manager";
+  // Contributors (authors + managers) don't need to be pitched the newsletter
+  // — they are the people producing it. Hide the in-post subscribe surfaces
+  // for them so the editorial flow stays clean.
+  const isContributor =
+    session?.profile.role === "author" || session?.profile.role === "manager";
+  // Split long articles at a paragraph boundary so the mini CTA sits at a
+  // natural editorial break rather than mid-sentence. Returns null when the
+  // article is too short to warrant a mid-article nudge.
+  const split = isContributor ? null : splitArticleForMidCta(safeHtml);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -169,7 +180,24 @@ export default async function PublicPostPage({ params }: { params: { slug: strin
               </div>
             </div>
 
-            <div className="article-body mt-8" dangerouslySetInnerHTML={{ __html: safeHtml }} />
+            {split ? (
+              <>
+                <div
+                  className="article-body mt-8"
+                  dangerouslySetInnerHTML={{ __html: split.first }}
+                />
+                <SubscribeMiniCta postSlug={post.slug} />
+                <div
+                  className="article-body"
+                  dangerouslySetInnerHTML={{ __html: split.second }}
+                />
+              </>
+            ) : (
+              <div
+                className="article-body mt-8"
+                dangerouslySetInnerHTML={{ __html: safeHtml }}
+              />
+            )}
           </article>
 
           {/* Tracks one Supabase row per session per post (30-min throttle)
@@ -181,6 +209,16 @@ export default async function PublicPostPage({ params }: { params: { slug: strin
             author={post.author?.full_name ?? post.author?.email ?? null}
             isLoggedIn={!!session}
           />
+
+          {/* Subscribe — sits after the article body so readers see it at
+              peak engagement, but before reactions/comments so it doesn't
+              compete with the social proof + discussion below. Hidden for
+              logged-in contributors who already drive the newsletter. */}
+          {!isContributor && (
+            <div className="mt-10 -mx-4 sm:mx-0">
+              <SubscribeSection source="post" postSlug={post.slug} compact />
+            </div>
+          )}
 
           {/* Reactions */}
           <div className="mt-10 border-t border-portal-border-soft pt-6">
@@ -236,4 +274,32 @@ export default async function PublicPostPage({ params }: { params: { slug: strin
       <PortalFooter />
     </div>
   );
+}
+
+/**
+ * Splits sanitized article HTML at the paragraph/heading boundary closest to
+ * ~55% of the document so the mid-article subscribe nudge lands at a natural
+ * editorial break. Returns `null` for short articles where a mid-article CTA
+ * would compete with the bottom subscribe block rather than complement it.
+ *
+ * Heuristic instead of DOM parsing: keeps this on the server (no jsdom),
+ * splits on closing tags so we never bisect an open element, and only fires
+ * when there are enough breaks for the math to be meaningful (>=4).
+ */
+function splitArticleForMidCta(html: string): { first: string; second: string } | null {
+  const wordCount = html.replace(/<[^>]+>/g, " ").trim().split(/\s+/).filter(Boolean).length;
+  if (wordCount < 400) return null;
+
+  const breaks: number[] = [];
+  const re = /<\/p>|<\/h[1-6]>|<\/blockquote>|<\/ul>|<\/ol>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) breaks.push(m.index + m[0].length);
+  if (breaks.length < 4) return null;
+
+  const target = Math.floor(html.length * 0.55);
+  const splitAt = breaks.reduce(
+    (best, b) => (Math.abs(b - target) < Math.abs(best - target) ? b : best),
+    breaks[0]!,
+  );
+  return { first: html.slice(0, splitAt), second: html.slice(splitAt) };
 }

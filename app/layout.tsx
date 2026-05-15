@@ -25,7 +25,7 @@ const orbitron = Orbitron({
 
 export const metadata: Metadata = {
   title: {
-    default: "CG Signal — Team Blog Portal",
+    default: "CG Signal — Team Blog Newsletter",
     template: "%s · CG Signal",
   },
   description: "Daily signals from the ConveGenius.ai team — notes, retros, launches, and experiments.",

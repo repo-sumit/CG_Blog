@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/auth/guards";
@@ -12,6 +12,7 @@ import { sanitizeHtml } from "@/lib/editor/sanitize";
 import { publicEnv } from "@/lib/env";
 import { WEEKLY_TEMPLATE } from "@/lib/editor/template";
 import { sendPerPostNewsletter } from "@/lib/email/newsletter";
+import { PUBLIC_FEED_TAG } from "@/lib/db/public";
 
 const SavePostSchema = z.object({
   id: z.string().uuid().optional(),
@@ -326,6 +327,9 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
     // Post just became public on Post Now.
     revalidatePath("/");
     revalidatePath(`/posts/${slug}`);
+    // Bust the public-feed unstable_cache entries (posts list, tags,
+    // contributor stats) so the new post shows up on the next read.
+    revalidateTag(PUBLIC_FEED_TAG);
   }
   // Authored-side surfaces always reflect the new status / updated_at.
   revalidatePath("/me/posts");
@@ -415,6 +419,7 @@ export async function createTagAsAuthor(input: {
   }
   revalidatePath("/admin/tags");
   revalidatePath("/");
+  revalidateTag(PUBLIC_FEED_TAG);
   return { ok: true, tag: inserted as { id: string; name: string; slug: string } };
 }
 
@@ -444,6 +449,7 @@ export async function softDeletePost(id: string): Promise<SavePostResult> {
   revalidatePath("/");
   revalidatePath("/me/posts");
   revalidatePath("/dashboard");
+  revalidateTag(PUBLIC_FEED_TAG);
   return { ok: true, id: parsed.data, slug: (existing as { slug: string }).slug };
 }
 
@@ -504,6 +510,7 @@ export async function permanentDeletePost(id: string): Promise<SavePostResult> {
   if (error) return { ok: false, error: error.message };
   revalidatePath("/");
   revalidatePath("/me/posts");
+  revalidateTag(PUBLIC_FEED_TAG);
   return { ok: true, id: parsed.data };
 }
 

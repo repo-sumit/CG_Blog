@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Calendar, Users, Tag, BarChart3 } from "lucide-react";
+import { Calendar, Users, Tag, BarChart3, Mail } from "lucide-react";
 import { requireManager } from "@/lib/auth/guards";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Panel, PanelBody } from "@/components/portal/Panel";
@@ -22,10 +22,11 @@ export default async function AdminHomePage() {
   ]);
 
   const sections = [
-    { href: "/admin/schedule",  icon: Calendar,  title: "Schedule",  desc: "Assign weekdays to each team member." },
-    { href: "/admin/users",     icon: Users,     title: "Users",     desc: "Manage the role allowlist." },
-    { href: "/admin/tags",      icon: Tag,       title: "Tags",      desc: "Curate tags used across posts." },
-    { href: "/admin/analytics", icon: BarChart3, title: "Analytics", desc: "Completion and content metrics." },
+    { href: "/admin/schedule",    icon: Calendar,  title: "Schedule",    desc: "Assign weekdays to each team member." },
+    { href: "/admin/users",       icon: Users,     title: "Users",       desc: "Manage the role allowlist." },
+    { href: "/admin/tags",        icon: Tag,       title: "Tags",        desc: "Curate tags used across posts." },
+    { href: "/admin/analytics",   icon: BarChart3, title: "Analytics",   desc: "Completion and content metrics." },
+    { href: "/admin/subscribers", icon: Mail,      title: "Subscribers", desc: "Newsletter signups and unsubscribes." },
   ];
 
   return (
@@ -34,7 +35,7 @@ export default async function AdminHomePage() {
         <h1 className="font-hero text-4xl font-bold uppercase tracking-tighter text-portal-text sm:text-5xl">
           Admin
         </h1>
-        <p className="text-sm text-portal-text-muted">Manage the team blog portal.</p>
+        <p className="text-sm text-portal-text-muted">Manage the team blog newsletter.</p>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

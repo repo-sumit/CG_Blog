@@ -105,11 +105,11 @@ function confirmPage(token: string): string {
   return pageShell(
     `
       <h1>Unsubscribe?</h1>
-      <p>Stop receiving CG Signal notifications. You can re-subscribe anytime from the portal.</p>
+      <p>Stop receiving CG Signal notifications. You can re-subscribe anytime from the newsletter.</p>
       <form method="post" action="/api/subscribe/unsubscribe?t=${encodeURIComponent(token)}">
         <button type="submit">Confirm unsubscribe</button>
       </form>
-      <a class="ghost" href="/">Cancel — back to the portal</a>
+      <a class="ghost" href="/">Cancel — back to the newsletter</a>
     `,
     "Confirm unsubscribe",
   );
@@ -120,7 +120,7 @@ function doneHtml(): string {
     `
       <h1>Unsubscribed</h1>
       <p>You're off the list. No more digests from CG Signal.</p>
-      <a class="btn" href="/">Back to the portal</a>
+      <a class="btn" href="/">Back to the newsletter</a>
     `,
     "Unsubscribed",
   );
@@ -131,7 +131,7 @@ function missingTokenPage(): string {
     `
       <h1>Link expired</h1>
       <p>That unsubscribe link is malformed or missing its token. Use the link from a recent CG Signal email.</p>
-      <a class="btn" href="/">Back to the portal</a>
+      <a class="btn" href="/">Back to the newsletter</a>
     `,
     "Link expired",
   );

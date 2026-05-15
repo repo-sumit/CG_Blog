@@ -48,6 +48,10 @@ interface ReactionAdded {
 
 interface SubscribeEvent {
   source?: string;
+  /** Where on the site the user saw the form — landing hero vs. post page. */
+  placement?: "landing" | "post_end" | "mid_article";
+  /** Slug of the post a `post_end`/`mid_article` impression came from. */
+  postSlug?: string;
 }
 
 interface PostStatusEvent {
@@ -67,6 +71,11 @@ export type TrackEvents = {
   login_success: LoginEvent;
   comment_added: CommentAdded;
   reaction_added: ReactionAdded;
+  /** Form was visible on screen (one event per mount per placement). */
+  subscribe_cta_view: SubscribeEvent;
+  /** User submitted the form. */
+  subscribe_submit: SubscribeEvent;
+  /** Legacy alias kept so existing call-sites keep compiling. */
   subscribe_started: SubscribeEvent;
   subscribe_success: SubscribeEvent;
   post_published: PostStatusEvent;

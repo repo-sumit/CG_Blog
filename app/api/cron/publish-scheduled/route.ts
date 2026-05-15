@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { serverEnv } from "@/lib/env";
 import { sendPerPostNewsletter } from "@/lib/email/newsletter";
+import { PUBLIC_FEED_TAG } from "@/lib/db/public";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,6 +60,12 @@ export async function GET(request: NextRequest) {
       continue;
     }
     promoted++;
+    // Invalidate the per-post route + bust the public-feed cache so the
+    // freshly-promoted post appears immediately on the landing instead of
+    // waiting up to 60s for the unstable_cache TTL.
+    revalidatePath("/");
+    revalidatePath(`/posts/${r.slug}`);
+    revalidateTag(PUBLIC_FEED_TAG);
     // Idempotent — `sendPerPostNewsletter` claims the post via a conditional
     // newsletter_sent_at update, so retries / double-runs never duplicate mail.
     const dispatch = await sendPerPostNewsletter(r.id);

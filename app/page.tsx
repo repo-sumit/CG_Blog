@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, Clock, Eye, Search } from "lucide-react";
+import { ArrowRight, Eye, Heart, MessageSquare, Search } from "lucide-react";
 import {
   listPublicPosts,
   listPublicTags,
@@ -21,12 +21,20 @@ import { publicEnv } from "@/lib/env";
 import { getAbsoluteImageUrl } from "@/lib/seo/get-og-image-url";
 import { cn } from "@/lib/utils/cn";
 
-export const dynamic = "force-dynamic";
+// Landing page caching strategy: ISR with a 60-second window.
+// • Publish / unpublish / tag changes all call `revalidatePath("/")` from
+//   the editor + admin server actions, so user-visible writes invalidate
+//   the cache immediately — the 60s TTL only applies to non-write events
+//   (a fresh view count, a new reaction tallied into the card footer).
+// • Reduces the public landing's Supabase round-trips dramatically: a single
+//   render is reused across all visitors within the window.
+// • See `docs/frontend-cache-audit.md` for the full reasoning.
+export const revalidate = 60;
 
 // Full OG + Twitter block so the root URL also unfurls with a thumbnail when
 // shared on WhatsApp / Slack / LinkedIn. Falls back to the same brand image
 // the post pages use when a post has no cover.
-const landingTitle = "CG SIGNAL · Team Blog Portal";
+const landingTitle = "CG SIGNAL · Team Blog Newsletter";
 const landingDescription =
   "Daily work signals, product notes, design logs, engineering updates, and team reflections from ConveGenius.";
 const landingImage = getAbsoluteImageUrl(null);
@@ -46,7 +54,7 @@ export const metadata: Metadata = {
         url: landingImage,
         width: 1200,
         height: 630,
-        alt: "CG SIGNAL · Team Blog Portal",
+        alt: "CG SIGNAL · Team Blog Newsletter",
       },
     ],
   },
@@ -119,7 +127,7 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
             <div className="grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-end">
               <div className="max-w-3xl space-y-5">
                 <div className="text-[11px] uppercase tracking-wider text-portal-orange">
-                  CG Signal · Team Blog Portal
+                  CG Signal · Team Blog Newsletter
                 </div>
                 <h1 className="font-hero text-5xl font-bold uppercase leading-[0.95] tracking-tighter text-portal-text sm:text-7xl">
                   The team
@@ -148,7 +156,7 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
                   <StatReadout label="Total transmissions" value={totalPosts} />
                   <StatReadout label="Contributors" value={totalAuthors} />
                   <StatReadout label="Categories" value={tags.length} />
-                  <StatReadout label="Cadence" valueText="Daily" sub="As signals are ready" />
+                  <StatReadout label="Cadence" valueText="Mon - Fri" sub="As signals are ready" />
                 </PanelBody>
               </Panel>
             </div>
@@ -312,7 +320,7 @@ function PublicPostCard({
           )}
         </div>
 
-        {/* Body — title, summary, author/meta row. */}
+        {/* Body — title, summary, engagement row. */}
         <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
           <h3 className="font-hero text-lg font-bold uppercase leading-snug tracking-tighter text-portal-text group-hover:text-portal-orange line-clamp-2">
             {post.title}
@@ -325,28 +333,52 @@ function PublicPostCard({
             <p className="text-xs italic text-portal-text-soft">No summary yet.</p>
           )}
 
-          <div className="mt-auto flex items-center gap-2 border-t border-portal-border-soft pt-3">
-            <Avatar
-              src={post.author?.avatar_url}
-              name={post.author?.full_name}
-              email={post.author?.email}
-              size="sm"
-            />
-            <span className="min-w-0 flex-1 truncate font-ui text-xs text-portal-text">
-              {post.author?.full_name || post.author?.email}
+          {/* Footer row — engagement counts on the left, first-name + avatar
+              on the right. Read time was intentionally removed to give the
+              counts room and to keep the row a single line on narrow widths. */}
+          <div className="mt-auto flex items-center gap-3 border-t border-portal-border-soft pt-3">
+            <span className="inline-flex shrink-0 items-center gap-2.5 text-[11px] tracking-wider text-portal-text-muted">
+              <span className="inline-flex items-center gap-1">
+                <Eye className="h-3.5 w-3.5" aria-hidden /> {post.viewCount}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Heart className="h-3.5 w-3.5" aria-hidden /> {post.reactionCount}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <MessageSquare className="h-3.5 w-3.5" aria-hidden /> {post.commentCount}
+              </span>
             </span>
-            <span className="inline-flex shrink-0 items-center gap-2 text-[10px] uppercase tracking-wider text-portal-text-muted">
-              <span className="inline-flex items-center gap-1">
-                <Eye className="h-3 w-3" /> {post.viewCount}
+            <span className="ml-auto inline-flex min-w-0 items-center gap-2">
+              <span className="min-w-0 truncate font-ui text-xs font-bold text-portal-text">
+                {firstNameOrFallback(post.author?.full_name, post.author?.email)}
               </span>
-              <span aria-hidden className="text-portal-text-soft">·</span>
-              <span className="inline-flex items-center gap-1">
-                <Clock className="h-3 w-3" /> {post.read_time_minutes}m
-              </span>
+              <Avatar
+                src={post.author?.avatar_url}
+                name={post.author?.full_name}
+                email={post.author?.email}
+                size="sm"
+              />
             </span>
           </div>
         </div>
       </Link>
     </article>
   );
+}
+
+/**
+ * Returns just the first token of the contributor's name (e.g. "Insha" from
+ * "Insha Kazi") so post cards stay scannable. Falls back to the email prefix,
+ * and finally to the brand wordmark when nothing is set — the fallback string
+ * was specced as `CG SIGNAL` so empty author slots still read on-brand.
+ */
+function firstNameOrFallback(fullName?: string | null, email?: string | null): string {
+  const name = (fullName ?? "").trim();
+  if (name) return name.split(/\s+/)[0] ?? name;
+  const e = (email ?? "").trim();
+  if (e) {
+    const local = e.split("@")[0] ?? "";
+    if (local) return local.split(/[._-]+/)[0] ?? local;
+  }
+  return "CG SIGNAL";
 }
