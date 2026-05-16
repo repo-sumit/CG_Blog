@@ -14,7 +14,6 @@ import { SubscribeSection } from "@/components/landing/SubscribeSection";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
-import { Panel, PanelBody } from "@/components/portal/Panel";
 import { Input } from "@/components/ui/Input";
 import { PostThumbnail } from "@/components/landing/PostThumbnail";
 import { publicEnv } from "@/lib/env";
@@ -103,7 +102,8 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
   // Uniform feed — every post is rendered with the same card chrome, like
   // YouTube's homepage. We previously hoisted the first post into a big
   // "featured" panel; authors found it inconsistent and the placeholder
-  // gradient was confusing. Now the first card is just the first card.
+  // gradient was confusing. Now the first card is just the first card, with
+  // only a `LATEST` badge on the freshest item as a subtle editorial cue.
   const totalAuthors = contributors.length;
   const totalPosts = allPosts.length;
 
@@ -113,32 +113,41 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
 
       <main className="flex-1">
         {/* ============ Hero ============ */}
+        {/* `py-16 sm:py-24` gives the hero more breathing room than the rest of
+            the page — section rhythm is deliberate: hero > feed > subscribe. */}
         <section className="relative overflow-hidden">
           <div aria-hidden className="absolute inset-0 grid-overlay opacity-40" />
           <div
             aria-hidden
-            className="absolute inset-0 opacity-50"
+            className="absolute inset-0 opacity-60"
             style={{
               background:
-                "radial-gradient(circle at 12% 18%, rgba(255,90,31,0.16), transparent 38%), radial-gradient(circle at 88% 12%, rgba(79,140,255,0.16), transparent 42%)",
+                "radial-gradient(circle at 12% 18%, rgba(255,90,31,0.18), transparent 38%), radial-gradient(circle at 88% 12%, rgba(79,140,255,0.18), transparent 42%)",
             }}
           />
-          <div className="container relative mx-auto px-4 py-14 sm:py-20">
-            <div className="grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-end">
-              <div className="max-w-3xl space-y-5">
-                <div className="text-[11px] uppercase tracking-wider text-portal-orange">
-                  CG Signal · Team Blog Newsletter
+          <div className="container relative mx-auto px-4 py-16 sm:py-24">
+            <div className="grid gap-12 lg:grid-cols-[1.35fr_1fr] lg:items-end">
+              <div className="max-w-3xl">
+                {/* System eyebrow — a single deliberate kicker. Pulsing dot +
+                    mono label ties the hero into the design system's signal
+                    grammar without restating the page title. */}
+                <div className="inline-flex items-center gap-2 font-ui text-[11px] uppercase tracking-[0.22em] text-portal-text-muted">
+                  <span
+                    aria-hidden
+                    className="signal-dot inline-block h-1.5 w-1.5 rounded-full bg-portal-green"
+                  />
+                  Live · Mon — Fri · 09:00 IST
                 </div>
-                <h1 className="font-hero text-5xl font-bold uppercase leading-[0.95] tracking-tighter text-portal-text sm:text-7xl">
+                <h1 className="mt-6 font-hero text-5xl font-bold uppercase leading-[0.92] tracking-tighter text-portal-text sm:text-7xl lg:text-[5.5rem]">
                   ConveGenius
                   <br />
                   signal feed.
                 </h1>
-                <p className="max-w-xl text-base leading-relaxed text-portal-text-muted">
-                  Daily work signals, product notes, design logs, engineering updates, and team
-                  reflections — posted whenever a signal is ready, by the people doing the work.
+                <p className="mt-6 max-w-xl text-base leading-relaxed text-portal-text sm:text-lg">
+                  Daily product, design, and engineering signals from the
+                  team building ConveGenius.
                 </p>
-                <div className="flex flex-wrap items-center gap-3 pt-2">
+                <div className="mt-8 flex flex-wrap items-center gap-3">
                   <Button asChild>
                     <Link href="#feed">
                       Read latest <ArrowRight className="h-4 w-4" />
@@ -150,27 +159,36 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
                 </div>
               </div>
 
-              {/* Stats readout — retro panel */}
-              <Panel variant="raised" className="hidden lg:block">
-                <PanelBody className="grid grid-cols-2 gap-4 p-6">
-                  <StatReadout label="Total transmissions" value={totalPosts} />
-                  <StatReadout label="Contributors" value={totalAuthors} />
-                  <StatReadout label="Categories" value={tags.length} />
-                  <StatReadout label="Cadence" valueText="Mon - Fri" sub="As signals are ready" />
-                </PanelBody>
-              </Panel>
+              {/* Stats readout — surfaces from `md` so tablet readers see the
+                  identity moment instead of an empty column. 4-up horizontal
+                  row separated by hairline dividers, not a 2×2 card grid. */}
+              <div className="hidden md:block">
+                <div className="relative rounded-md border border-portal-border-soft bg-portal-panel-soft/60 p-6 backdrop-blur-sm">
+                  <div className="mb-4 flex items-center justify-between font-ui text-[10px] uppercase tracking-[0.22em] text-portal-text-soft">
+                    <span>System readout</span>
+                    <span className="text-portal-orange">{"// 00"}</span>
+                  </div>
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+                    <StatReadout label="Transmissions" value={totalPosts} />
+                    <StatReadout label="Contributors" value={totalAuthors} />
+                    <StatReadout label="Channels" value={tags.length} />
+                    <StatReadout label="Cadence" valueText="Mon — Fri" sub="As signals are ready" />
+                  </dl>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
         {/* ============ Filter strip ============ */}
+        {/* Sits immediately under the hero with a tight pb so the feed below
+            it reads as continuous, not three stacked sections. */}
         <section className="container mx-auto px-4" id="feed">
           <div className="rounded-md border border-portal-border-soft bg-portal-panel-soft p-4">
             <form className="flex flex-wrap items-center gap-3" action="/" method="get">
-              {/* min-w-0 here is critical — without it the flex parent can't
-                  shrink below the input's intrinsic width, which on narrow
-                  phones (~360px) was pushing the whole page wider than the
-                  viewport and clipping every section's right edge. */}
+              {/* min-w-0 is critical — without it the flex parent can't shrink
+                  below the input's intrinsic width on narrow phones (~360 px),
+                  which was pushing the whole page wider than the viewport. */}
               <div className="relative min-w-0 flex-1 basis-full sm:basis-auto">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-portal-text-muted" />
                 <Input
@@ -191,16 +209,18 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
 
             {tags.length > 0 && (
               <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-portal-border-soft pt-3">
-                <span className="mr-2 text-[10px] uppercase tracking-wider text-portal-text-muted">
-                  Channel:
+                {/* `// CHANNEL` in-system kicker — matches the brand's section
+                    grammar (PostThumbnail uses the `001 // SIGNAL` idiom). */}
+                <span className="mr-2 inline-flex items-center gap-1 font-ui text-[10px] uppercase tracking-[0.22em] text-portal-text-muted">
+                  <span className="text-portal-orange">{"//"}</span> Channel
                 </span>
                 <Link
                   href={{ pathname: "/", query: { ...searchParams, tag: undefined } }}
                   className={cn(
                     "rounded-pill border px-3 py-0.5 font-ui text-[10px] uppercase tracking-wider transition-colors",
                     !searchParams.tag
-                      ? "border-portal-orange/40 bg-portal-orange/10 text-portal-orange"
-                      : "border-portal-border-soft text-portal-text-muted hover:border-portal-border-muted",
+                      ? "border-portal-orange bg-portal-orange text-white"
+                      : "border-portal-border-soft text-portal-text-muted hover:border-portal-border-muted hover:text-portal-text",
                   )}
                 >
                   All
@@ -212,8 +232,8 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
                     className={cn(
                       "rounded-pill border px-3 py-0.5 font-ui text-[10px] uppercase tracking-wider transition-colors",
                       searchParams.tag === t.slug
-                        ? "border-portal-orange/40 bg-portal-orange/10 text-portal-orange"
-                        : "border-portal-border-soft text-portal-text-muted hover:border-portal-border-muted",
+                        ? "border-portal-orange bg-portal-orange text-white"
+                        : "border-portal-border-soft text-portal-text-muted hover:border-portal-border-muted hover:text-portal-text",
                     )}
                   >
                     {t.name}
@@ -225,46 +245,42 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
         </section>
 
         {/* ============ Uniform post feed ============ */}
-        <section className="container mx-auto px-4 py-10 pb-16">
+        <section className="container mx-auto px-4 py-10 sm:py-14">
           {filtered.length === 0 ? (
-            <div className="rounded-md border border-dashed border-portal-border-soft p-16 text-center">
-              <h2 className="font-hero text-xl font-bold uppercase text-portal-text">
-                No transmissions yet
-              </h2>
-              <p className="mt-2 text-sm text-portal-text-muted">
-                Check back next week — the team broadcasts daily.
-              </p>
-            </div>
+            <EmptyTransmissions filtered={!!(searchParams.q || searchParams.tag)} />
           ) : (
             <>
-              <div className="mb-4 flex items-end justify-between">
-                <div className="text-[11px] uppercase tracking-wider text-portal-text-muted">
-                  Latest transmissions
-                </div>
-                <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">
-                  {filtered.length} {filtered.length === 1 ? "post" : "posts"}
-                </div>
-              </div>
-              {/* Fluid auto-fit grid (`.post-grid` in globals.css) — reflows
-                  by available width instead of hard breakpoints, so the
-                  card count tracks browser zoom and ultra-wide displays
-                  alike. The `container` wrapper above caps the section at
-                  1536px, which is what limits us to 4 cards on the widest
-                  desktops. See `docs/frontend-cache-audit.md` siblings for
-                  the design-system grid spec. */}
+              <SectionEyebrow
+                number="01"
+                label="Signal feed"
+                tail={`${filtered.length} ${filtered.length === 1 ? "transmission" : "transmissions"}`}
+              />
+              {/* Fluid auto-fit grid (`.post-grid` in globals.css) — reflows by
+                  available width instead of hard breakpoints, so the card
+                  count tracks browser zoom and ultra-wide displays alike. */}
               <div className="post-grid">
-                {filtered.map((p) => <PublicPostCard key={p.id} post={p} />)}
+                {filtered.map((p, i) => (
+                  <PublicPostCard key={p.id} post={p} isFirst={i === 0} />
+                ))}
               </div>
             </>
           )}
         </section>
 
         {/* ============ Contributors ============ */}
-        <div id="contributors">
-          <ContributorsSection contributors={contributors} />
-        </div>
+        {/* Wrap the section with a `02` eyebrow so the editorial rhythm runs
+            consistently through the page. The internal ContributorsSection
+            still owns its own heading + grid; this row is a deliberate
+            running-head, not a duplicate H2. */}
+        <section className="container mx-auto px-4 pt-6" id="contributors">
+          <SectionEyebrow number="02" label="The crew" tail={`${totalAuthors} active`} />
+        </section>
+        <ContributorsSection contributors={contributors} />
 
         {/* ============ Subscribe ============ */}
+        <section className="container mx-auto px-4 pt-6">
+          <SectionEyebrow number="03" label="Receive the next signal" tail="No spam" />
+        </section>
         <SubscribeSection />
       </main>
 
@@ -274,6 +290,41 @@ export default async function PublicLandingPage({ searchParams }: { searchParams
 }
 
 // ---------- helpers ----------
+
+/**
+ * Editorial section running-head. Two mono labels separated by a hairline
+ * that fills the remaining width — the brand voice's recurring `// 01`
+ * section-number motif lifted to page level. Replaces ad-hoc "Latest
+ * transmissions" labels with a single, consistent grammar so the whole
+ * page reads as one document, not three stacked widgets.
+ */
+function SectionEyebrow({
+  number,
+  label,
+  tail,
+}: {
+  number: string;
+  label: string;
+  tail?: string;
+}) {
+  return (
+    <div className="mb-5 flex items-center gap-3 sm:mb-6">
+      <span className="font-ui text-[10px] uppercase tracking-[0.22em] text-portal-orange">
+        {`// `}
+        {number}
+      </span>
+      <span className="font-ui text-[11px] font-bold uppercase tracking-[0.18em] text-portal-text">
+        {label}
+      </span>
+      <span aria-hidden className="h-px flex-1 bg-portal-border-soft" />
+      {tail ? (
+        <span className="shrink-0 font-ui text-[10px] uppercase tracking-[0.18em] text-portal-text-muted">
+          {tail}
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 function StatReadout({
   label,
@@ -287,32 +338,66 @@ function StatReadout({
   sub?: string;
 }) {
   return (
-    <div className="rounded-md border border-portal-border-soft bg-portal-panel-soft p-3">
-      <div className="text-[10px] uppercase tracking-wider text-portal-text-muted">{label}</div>
-      <div className="mt-1 font-hero text-2xl font-bold tracking-tighter text-portal-text">
+    <div className="min-w-0">
+      <dt className="text-[10px] uppercase tracking-[0.22em] text-portal-text-soft">{label}</dt>
+      <dd className="mt-1 font-hero text-3xl font-bold leading-none tracking-tighter text-portal-text sm:text-4xl">
         {value !== undefined ? value : valueText}
-      </div>
-      {sub && (
-        <div className="mt-0.5 text-[10px] uppercase tracking-wider text-portal-text-soft">
+      </dd>
+      {sub ? (
+        <div className="mt-1 truncate text-[9px] uppercase tracking-[0.2em] text-portal-text-soft">
           {sub}
         </div>
-      )}
+      ) : null}
+    </div>
+  );
+}
+
+function EmptyTransmissions({ filtered }: { filtered: boolean }) {
+  return (
+    <div className="rounded-md border border-dashed border-portal-border-soft p-12 text-center sm:p-16">
+      <div className="mb-4 inline-flex items-center gap-2 font-ui text-[10px] uppercase tracking-[0.22em] text-portal-text-muted">
+        <span aria-hidden className="signal-dot inline-block h-1.5 w-1.5 rounded-full bg-portal-yellow" />
+        Signal idle
+      </div>
+      <h2 className="font-hero text-2xl font-bold uppercase tracking-tighter text-portal-text">
+        {filtered ? "Nothing matches" : "No transmissions yet"}
+      </h2>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-portal-text-muted">
+        {filtered
+          ? "Try clearing the filter, or pick a different channel."
+          : "The team broadcasts Mon — Fri. Check back soon, or subscribe to get the next signal in your inbox."}
+      </p>
     </div>
   );
 }
 
 function PublicPostCard({
   post,
+  isFirst,
 }: {
   post: Awaited<ReturnType<typeof listPublicPosts>>[number];
+  isFirst: boolean;
 }) {
   return (
-    <article className="group flex min-w-0 flex-col overflow-hidden rounded-md border border-portal-border-soft bg-portal-panel transition-colors hover:border-portal-border-muted">
+    <article
+      className={cn(
+        "group relative flex min-w-0 flex-col overflow-hidden rounded-md border bg-portal-panel",
+        "border-portal-border-soft transition-[transform,border-color,box-shadow] duration-200",
+        "ease-[cubic-bezier(0.16,1,0.3,1)]",
+        "hover:-translate-y-0.5 hover:border-portal-orange/50 hover:shadow-[0_8px_30px_-12px_rgba(255,90,31,0.18)]",
+      )}
+    >
       <Link href={`/posts/${post.slug}`} className="flex flex-1 flex-col">
-        {/* Thumbnail at the top — real cover if the author picked one, otherwise
-            a slug-deterministic placeholder that still feels on-brand. */}
+        {/* Thumbnail — real cover if the author picked one, otherwise a
+            slug-deterministic placeholder that still feels on-brand. */}
         <div className="relative">
           <PostThumbnail url={post.coverUrl} title={post.title} slug={post.slug} />
+          {isFirst ? (
+            <span className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-pill bg-portal-orange px-2 py-0.5 font-ui text-[9px] font-bold uppercase tracking-[0.22em] text-white shadow-[0_4px_12px_-2px_rgba(255,90,31,0.45)]">
+              <span aria-hidden className="signal-dot inline-block h-1 w-1 rounded-full bg-white" />
+              Latest
+            </span>
+          ) : null}
           {post.tags.length > 0 && (
             <div className="pointer-events-none absolute bottom-2 left-2 right-2 flex flex-wrap gap-1.5">
               {post.tags.slice(0, 2).map((t) => (
@@ -326,7 +411,7 @@ function PublicPostCard({
 
         {/* Body — title, summary, engagement row. */}
         <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-          <h3 className="font-hero text-lg font-bold uppercase leading-snug tracking-tighter text-portal-text group-hover:text-portal-orange line-clamp-2">
+          <h3 className="line-clamp-2 font-hero text-lg font-bold uppercase leading-snug tracking-tighter text-portal-text transition-colors group-hover:text-portal-orange">
             {post.title}
           </h3>
           {post.excerpt ? (
@@ -337,18 +422,18 @@ function PublicPostCard({
             <p className="text-xs italic text-portal-text-soft">No summary yet.</p>
           )}
 
-          {/* Footer row — engagement counts on the left, first-name + avatar
-              on the right. Read time was intentionally removed to give the
-              counts room and to keep the row a single line on narrow widths. */}
+          {/* Footer — engagement counts on the left, first-name + avatar on
+              the right. Read time intentionally absent (lives on the post
+              detail page) to keep the row to a single line on narrow widths. */}
           <div className="mt-auto flex items-center gap-3 border-t border-portal-border-soft pt-3">
             <span className="inline-flex shrink-0 items-center gap-2.5 text-[11px] tracking-wider text-portal-text-muted">
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex items-center gap-1 tabular-nums">
                 <Eye className="h-3.5 w-3.5" aria-hidden /> {post.viewCount}
               </span>
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex items-center gap-1 tabular-nums">
                 <Heart className="h-3.5 w-3.5" aria-hidden /> {post.reactionCount}
               </span>
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex items-center gap-1 tabular-nums">
                 <MessageSquare className="h-3.5 w-3.5" aria-hidden /> {post.commentCount}
               </span>
             </span>
