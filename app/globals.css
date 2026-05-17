@@ -443,13 +443,50 @@
 
 /* Reading article styles */
 .article-body { color: var(--text-main); font-size: 17px; line-height: 1.75; }
+
+/* CSS safety net for posts that still carry inline `color` / `background`
+   from pasted Google Docs / Word content. The server-side sanitiser strips
+   most of these at render time, but `!important` here covers anything that
+   slipped through plus anything an author intentionally typed via the
+   editor's colour picker (which we no longer expose). Links + code blocks
+   are excluded because they style themselves below. */
+.article-body,
+.article-body p,
+.article-body li,
+.article-body span,
+.article-body strong,
+.article-body em,
+.article-body u,
+.article-body b,
+.article-body i,
+.article-body h1,
+.article-body h2,
+.article-body h3,
+.article-body h4,
+.article-body h5,
+.article-body h6,
+.article-body blockquote,
+.article-body div,
+.article-body small {
+  color: var(--text-main) !important;
+  background-color: transparent !important;
+}
+
 .article-body h2 { font-family: var(--font-hero), system-ui, sans-serif; @apply text-3xl font-semibold mt-10 mb-3; letter-spacing: var(--tracking-tight); }
 .article-body h3 { font-family: var(--font-hero), system-ui, sans-serif; @apply text-xl font-semibold mt-8 mb-2; }
 .article-body h4 { @apply text-lg font-semibold mt-6 mb-2; }
 .article-body p  { @apply my-4; }
 .article-body ul { @apply list-disc pl-6 my-4; }
 .article-body ol { @apply list-decimal pl-6 my-4; }
-.article-body blockquote { border-left: 3px solid var(--accent-orange); padding-left: 16px; font-style: italic; color: var(--text-muted); margin: 24px 0; }
+.article-body blockquote {
+  border-left: 3px solid var(--accent-orange);
+  padding-left: 16px;
+  font-style: italic;
+  /* Blockquote keeps the muted-ink treatment — override the safety-net rule
+     above with a more specific selector so the contrast hierarchy survives. */
+  color: var(--text-muted) !important;
+  margin: 24px 0;
+}
 .article-body img, .article-body video { @apply my-6 rounded-lg max-w-full; border: 1px solid var(--border-soft); }
 .article-body audio { @apply my-6 w-full max-w-[560px]; }
 

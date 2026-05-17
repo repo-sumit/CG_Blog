@@ -20,9 +20,15 @@
  * automatically — we don't need to whitelist tags here.
  */
 
+// Whitelist of CSS properties we keep on pasted content. Notably absent:
+//   - color / background-color / background → these were originally allowed
+//     but lock text to whatever shade Google Docs picked, which becomes
+//     unreadable in dark mode. The portal theme owns the colour, full stop.
+//   - font-family / font-size → noisy and almost always wrong against the
+//     hero/UI fonts.
+// What survives is purely semantic emphasis + alignment, which translates
+// cleanly into the Tiptap schema.
 const KEEP_STYLES = new Set([
-  "color",
-  "background-color",
   "font-weight",
   "font-style",
   "text-decoration",

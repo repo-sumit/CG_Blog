@@ -253,8 +253,8 @@ export default async function PublicPostPage(props: { params: Promise<{ slug: st
           )}
 
           {/* Reactions */}
-          <div className="mt-10 border-t border-portal-border-soft pt-6">
-            <div className="mb-3 text-[10px] uppercase tracking-wider text-portal-text-muted">
+          <div className="mt-12 border-t border-portal-border-soft pt-8">
+            <div className="mb-5 font-ui text-[11px] font-semibold uppercase tracking-[0.18em] text-portal-text-muted">
               Reactions
             </div>
             <ReactionsBar

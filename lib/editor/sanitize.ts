@@ -27,6 +27,49 @@ function srcOf(attrs: string): string | null {
 const TAG_RE = /<\/?([a-zA-Z][a-zA-Z0-9]*)([^>]*)>/g;
 const FORBIDDEN_TAGS = new Set(["script", "object", "embed", "form", "input", "style", "link", "meta"]);
 
+// Inline-style + legacy color stripping. Pasted content (Google Docs, Word,
+// Notion exports) ships with `style="color: rgb(0,0,0)"` and `<font color="…">`
+// which lock the text to a single colour — that becomes unreadable in dark
+// mode (black ink on the dark portal). We rewrite those at the *server*
+// sanitiser layer so already-saved posts render correctly without an edit
+// pass, then drop the same properties from the paste-sanitiser allowlist so
+// new content doesn't smuggle them back in.
+const STYLE_ATTR_RE = /\sstyle\s*=\s*("([^"]*)"|'([^']*)')/gi;
+const FONT_TAG_COLOR_RE = /<font\b([^>]*)>/gi;
+const FONT_COLOR_ATTR_RE = /\scolor\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+
+function stripStyleColors(declarations: string): string {
+  const kept: string[] = [];
+  for (const decl of declarations.split(";")) {
+    const idx = decl.indexOf(":");
+    if (idx < 0) continue;
+    const prop = decl.slice(0, idx).trim().toLowerCase();
+    const value = decl.slice(idx + 1).trim();
+    if (!prop || !value) continue;
+    // Drop anything that drives foreground/background colour. We deliberately
+    // keep weight, style, alignment, decoration so emphasis still renders.
+    if (prop === "color" || prop === "background-color" || prop === "background") continue;
+    kept.push(`${prop}: ${value}`);
+  }
+  return kept.join("; ");
+}
+
+function stripColorAttributes(html: string): string {
+  let out = html.replace(STYLE_ATTR_RE, (_match, _quoted, dq?: string, sq?: string) => {
+    const raw = dq ?? sq ?? "";
+    const cleaned = stripStyleColors(raw);
+    return cleaned ? ` style="${cleaned}"` : "";
+  });
+  // Legacy <font color="…"> — drop just the color attribute, keep the tag so
+  // we don't accidentally orphan its children. ProseMirror's renderer would
+  // unwrap empty <font> tags downstream anyway.
+  out = out.replace(FONT_TAG_COLOR_RE, (_m, attrs: string) => {
+    const cleaned = attrs.replace(FONT_COLOR_ATTR_RE, "");
+    return `<font${cleaned}>`;
+  });
+  return out;
+}
+
 const H1_TAG_RE = /<(\/?)h1(\b[^>]*)>/gi;
 const HEADING_TAG_RE = /<(\/?)h([1-6])(\b[^>]*)>/gi;
 
@@ -83,6 +126,7 @@ export function sanitizeHtml(input: string): string {
     return match;
   });
 
+  html = stripColorAttributes(html);
   html = normalizeHeadingLevels(html);
   return html;
 }
