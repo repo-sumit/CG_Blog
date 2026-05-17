@@ -34,7 +34,7 @@ function normalizeTags(raw: unknown): { id: string; name: string; slug: string }
 
 function normalizeRow(row: Record<string, unknown>): PostWithAuthor {
   const tags = normalizeTags(row.tags);
-  const authorRaw = row.author as Record<string, unknown> | null;
+  const authorRaw = row.author as unknown as Record<string, unknown> | null;
   return {
     ...(row as unknown as PostRow),
     author: authorRaw
@@ -118,7 +118,7 @@ export async function listPublishedPosts(params: ListPostsParams = {}): Promise<
     console.error("[listPublishedPosts]", error);
     return [];
   }
-  return (data ?? []).map((r) => normalizeRow(r as Record<string, unknown>));
+  return (data ?? []).map((r) => normalizeRow(r as unknown as Record<string, unknown>));
 }
 
 export async function getPostBySlug(slug: string): Promise<PostWithAuthor | null> {
@@ -129,14 +129,14 @@ export async function getPostBySlug(slug: string): Promise<PostWithAuthor | null
     .eq("slug", slug)
     .maybeSingle();
   if (error || !data) return null;
-  return normalizeRow(data as Record<string, unknown>);
+  return normalizeRow(data as unknown as Record<string, unknown>);
 }
 
 export async function getPostById(id: string): Promise<PostWithAuthor | null> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("posts").select(POST_SELECT).eq("id", id).maybeSingle();
   if (error || !data) return null;
-  return normalizeRow(data as Record<string, unknown>);
+  return normalizeRow(data as unknown as Record<string, unknown>);
 }
 
 export async function listOwnPosts(authorId: string): Promise<PostWithAuthor[]> {
@@ -150,7 +150,7 @@ export async function listOwnPosts(authorId: string): Promise<PostWithAuthor[]> 
     console.error("[listOwnPosts]", error);
     return [];
   }
-  const posts = (data ?? []).map((r) => normalizeRow(r as Record<string, unknown>));
+  const posts = (data ?? []).map((r) => normalizeRow(r as unknown as Record<string, unknown>));
 
   // Tally views for the author's posts in one extra round-trip. RLS lets
   // authors read their own post_views rows, so no service-role escalation
@@ -182,5 +182,5 @@ export async function listPostsThisWeek(weekStart: string): Promise<PostWithAuth
     console.error("[listPostsThisWeek]", error);
     return [];
   }
-  return (data ?? []).map((r) => normalizeRow(r as Record<string, unknown>));
+  return (data ?? []).map((r) => normalizeRow(r as unknown as Record<string, unknown>));
 }

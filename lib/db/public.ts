@@ -253,7 +253,7 @@ export async function getPublicPostBySlug(slug: string): Promise<PublicPost | nu
     .eq("status", "published") // SECURITY: drafts are not addressable via this route.
     .maybeSingle();
   if (error || !data) return null;
-  const post = normalize(data as Record<string, unknown>);
+  const post = normalize(data as unknown as Record<string, unknown>);
   const [withViews] = await attachViewCounts([post]);
   const [withEngagement] = await attachEngagementCounts([withViews ?? post]);
   const [withCover] = await attachCoverUrls([withEngagement ?? withViews ?? post]);

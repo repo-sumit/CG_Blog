@@ -1,3 +1,5 @@
+import { withSentryConfig } from "@sentry/nextjs";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -25,4 +27,16 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry is wrapped last so it can wire source-map upload + tunneling. Falls
+// back to a passthrough when SENTRY_AUTH_TOKEN is missing (dev/CI without
+// release tracking) so builds don't fail in env's without Sentry creds.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+  // /monitoring proxies the Sentry SDK so ad blockers don't drop client errors.
+  tunnelRoute: "/monitoring",
+  hideSourceMaps: true,
+  widenClientFileUpload: true,
+});

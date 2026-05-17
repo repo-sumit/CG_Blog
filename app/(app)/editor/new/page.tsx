@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { requireAuthor } from "@/lib/auth/guards";
 import { listTags } from "@/lib/db/tags";
-import { PostEditor } from "@/components/editor/PostEditor";
+import { PostEditor } from "@/components/editor/PostEditorLoader";
 import { WEEKLY_TEMPLATE } from "@/lib/editor/template";
 import { publicEnv } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";

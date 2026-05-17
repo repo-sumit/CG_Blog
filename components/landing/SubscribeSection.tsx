@@ -139,19 +139,8 @@ export function SubscribeSection({
           "relative w-full overflow-hidden rounded-md border bg-portal-panel-soft",
           compact
             ? "border-portal-border-soft p-5 sm:p-8"
-            : "border-portal-border-muted p-6 sm:p-10 lg:p-12",
+            : "border-portal-border-muted bg-portal-panel-soft p-6 sm:p-10 lg:p-12",
         )}
-        // Gradient halo on the landing variant only — keeps the post-page
-        // variant subdued so it reads as part of the editorial flow rather
-        // than a marketing block.
-        style={
-          compact
-            ? undefined
-            : {
-                background:
-                  "radial-gradient(circle at 50% 0%, rgba(79,140,255,0.14), transparent 45%), radial-gradient(circle at 90% 100%, rgba(255,90,31,0.10), transparent 50%), var(--bg-panel-soft)",
-              }
-        }
       >
         <div
           className={cn(

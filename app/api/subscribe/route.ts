@@ -4,6 +4,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { publicEnv } from "@/lib/env";
 import { sendEmail } from "@/lib/email/resend";
 import { welcomeTemplate } from "@/lib/email/templates";
+import { checkRateLimit, clientIdFromRequest, rateLimitHeaders } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,16 @@ const Body = z.object({
  * list (mild enumeration mitigation). Errors are logged server-side.
  */
 export async function POST(request: NextRequest) {
+  // Rate limit by IP — 5 attempts per 60s. This endpoint is a prime target
+  // for email-list enumeration + spam, so the limit is intentionally tight.
+  const rl = await checkRateLimit("subscribe", clientIdFromRequest(request));
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: "Too many requests. Please try again in a minute." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
+
   let json: unknown;
   try {
     json = await request.json();
@@ -68,10 +79,16 @@ export async function POST(request: NextRequest) {
       row = same as unknown as { id: string; unsubscribe_token: string } | null;
       status = "already_subscribed";
     } else {
-      // Previously unsubscribed — reactivate and (re-)send a welcome.
+      // Previously unsubscribed — reactivate, ROTATE the unsubscribe token
+      // (so any old leaked links from the prior subscription stop working),
+      // and (re-)send a welcome.
+      const newToken =
+        globalThis.crypto?.randomUUID?.() ??
+        // Fallback for older runtimes; randomUUID has shipped in Node 14.17+.
+        Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
       const { data: updated } = await service
         .from("subscribers")
-        .update({ unsubscribed_at: null })
+        .update({ unsubscribed_at: null, unsubscribe_token: newToken })
         .eq("id", e.id)
         .select("id, unsubscribe_token")
         .single();

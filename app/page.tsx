@@ -118,14 +118,6 @@ export default async function PublicLandingPage(props: { searchParams: Promise<S
             the page — section rhythm is deliberate: hero > feed > subscribe. */}
         <section className="relative overflow-hidden">
           <div aria-hidden className="absolute inset-0 grid-overlay opacity-40" />
-          <div
-            aria-hidden
-            className="absolute inset-0 opacity-60"
-            style={{
-              background:
-                "radial-gradient(circle at 12% 18%, rgba(255,90,31,0.18), transparent 38%), radial-gradient(circle at 88% 12%, rgba(79,140,255,0.18), transparent 42%)",
-            }}
-          />
           <div className="container relative mx-auto px-4 py-16 sm:py-24">
             <div className="grid gap-12 lg:grid-cols-[1.35fr_1fr] lg:items-end">
               <div className="max-w-3xl">

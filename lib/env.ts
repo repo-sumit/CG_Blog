@@ -1,9 +1,20 @@
 // Centralized env access. Server-only values are read lazily so they never
 // reach the client bundle.
 
+// Supabase expects `NEXT_PUBLIC_SUPABASE_URL` to be the project origin
+// (e.g. `https://abcd1234.supabase.co`) — supabase-js appends `/rest/v1/...`
+// itself, so a `.env` value with a trailing path produces double-prefixed
+// URLs and PGRST125 "Invalid path" errors at runtime. This normalizer is
+// defensive: it strips a trailing slash and any accidental `/rest/v1`
+// suffix so the rest of the codebase doesn't have to think about it.
+function normalizeSupabaseUrl(raw: string | undefined): string {
+  if (!raw) return "";
+  return raw.replace(/\/+$/, "").replace(/\/rest\/v1$/i, "");
+}
+
 export const publicEnv = {
-  appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+  appUrl: (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/+$/, ""),
+  supabaseUrl: normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL),
   supabasePublishableKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
   requireManagerReview:
     (process.env.NEXT_PUBLIC_REQUIRE_MANAGER_REVIEW ?? "false").toLowerCase() === "true",

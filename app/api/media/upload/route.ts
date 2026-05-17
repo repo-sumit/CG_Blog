@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { classifyMime, validateFile } from "@/lib/utils/file-validation";
 import { publicEnv } from "@/lib/env";
+import { checkRateLimit, clientIdFromRequest, rateLimitHeaders } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,9 +18,18 @@ const PATH_RE = new RegExp(
   "i",
 );
 
+// fileName is rendered in admin UI without escaping in some places, so we
+// strip HTML control chars defensively (`<`, `>`, `"`, `'`) and forbid
+// path-traversal segments. The DB column is large enough for 256 chars but
+// shorter names render better in lists.
 const Body = z.object({
   path: z.string().min(8).max(512),
-  fileName: z.string().min(1).max(256),
+  fileName: z
+    .string()
+    .min(1)
+    .max(256)
+    .refine((s) => !/[<>"']/.test(s), "fileName cannot contain <, >, \", or '")
+    .refine((s) => !s.includes("..") && !s.includes("/") && !s.includes("\\"), "fileName cannot contain path separators"),
   mimeType: z.string().min(1).max(120),
   sizeBytes: z.number().int().nonnegative(),
   postId: z.string().uuid().optional().nullable(),
@@ -49,6 +59,17 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Rate limit by user id (authenticated endpoint). 30 uploads / 60 s gives
+  // legitimate authors plenty of headroom for media-rich posts while still
+  // shutting down a runaway script or compromised session.
+  const rl = await checkRateLimit("media-upload", user.id);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many uploads. Please slow down." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
 
   const { data: profile } = await supabase
     .from("profiles")

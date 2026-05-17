@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireAuthor } from "@/lib/auth/guards";
 import { listTags } from "@/lib/db/tags";
 import { getPostById } from "@/lib/db/posts";
-import { PostEditor } from "@/components/editor/PostEditor";
+import { PostEditor } from "@/components/editor/PostEditorLoader";
 import { publicEnv } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
