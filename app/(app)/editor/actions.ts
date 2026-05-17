@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/auth/guards";
@@ -46,7 +46,7 @@ export interface SavePostResult {
 }
 
 async function ensureUniqueSlug(base: string, currentId?: string): Promise<string> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   let candidate = base;
   for (let i = 0; i < 6; i++) {
     const q = supabase.from("posts").select("id").eq("slug", candidate).limit(1);
@@ -90,7 +90,7 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
     return { ok: false, error: "Invalid input.", fieldErrors };
   }
   const data = parsed.data;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   // Normalise em/en dashes BEFORE sanitisation — body, summary, and title all
   // get the same treatment so feed cards, OG metadata, and the in-page render
   // are consistent. URL text inside <a> anchors is preserved by the HTML walker.
@@ -329,7 +329,7 @@ export async function savePost(input: SavePostInput): Promise<SavePostResult> {
     revalidatePath(`/posts/${slug}`);
     // Bust the public-feed unstable_cache entries (posts list, tags,
     // contributor stats) so the new post shows up on the next read.
-    revalidateTag(PUBLIC_FEED_TAG);
+    updateTag(PUBLIC_FEED_TAG);
   }
   // Authored-side surfaces always reflect the new status / updated_at.
   revalidatePath("/me/posts");
@@ -419,7 +419,7 @@ export async function createTagAsAuthor(input: {
   }
   revalidatePath("/admin/tags");
   revalidatePath("/");
-  revalidateTag(PUBLIC_FEED_TAG);
+  updateTag(PUBLIC_FEED_TAG);
   return { ok: true, tag: inserted as { id: string; name: string; slug: string } };
 }
 
@@ -431,7 +431,7 @@ export async function softDeletePost(id: string): Promise<SavePostResult> {
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, error: "Invalid post id." };
   const { userId, profile } = await requireSession();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data: existing } = await supabase
     .from("posts")
     .select("author_id, slug, status")
@@ -449,7 +449,7 @@ export async function softDeletePost(id: string): Promise<SavePostResult> {
   revalidatePath("/");
   revalidatePath("/me/posts");
   revalidatePath("/dashboard");
-  revalidateTag(PUBLIC_FEED_TAG);
+  updateTag(PUBLIC_FEED_TAG);
   return { ok: true, id: parsed.data, slug: (existing as { slug: string }).slug };
 }
 
@@ -458,7 +458,7 @@ export async function restorePost(id: string): Promise<SavePostResult> {
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, error: "Invalid post id." };
   const { userId, profile } = await requireSession();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data: existing } = await supabase
     .from("posts")
     .select("author_id, slug, status")
@@ -490,7 +490,7 @@ export async function permanentDeletePost(id: string): Promise<SavePostResult> {
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, error: "Invalid post id." };
   const { userId, profile } = await requireSession();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data: existing } = await supabase
     .from("posts")
     .select("author_id, status")
@@ -510,7 +510,7 @@ export async function permanentDeletePost(id: string): Promise<SavePostResult> {
   if (error) return { ok: false, error: error.message };
   revalidatePath("/");
   revalidatePath("/me/posts");
-  revalidateTag(PUBLIC_FEED_TAG);
+  updateTag(PUBLIC_FEED_TAG);
   return { ok: true, id: parsed.data };
 }
 

@@ -29,7 +29,8 @@ export const metadata: Metadata = {
     template: "%s · CG Signal",
   },
   description: "Daily signals from the ConveGenius.ai team — notes, retros, launches, and experiments.",
-  robots: { index: false, follow: false, nocache: true },
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+  robots: { index: true, follow: true },
   icons: {
     icon: "/cg.png",
     shortcut: "/cg.png",

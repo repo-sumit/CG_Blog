@@ -72,7 +72,7 @@ function escapeSearchTerm(input: string): string {
 }
 
 export async function listPublishedPosts(params: ListPostsParams = {}): Promise<PostWithAuthor[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const limit = params.limit ?? 30;
   const offset = params.offset ?? 0;
 
@@ -122,7 +122,7 @@ export async function listPublishedPosts(params: ListPostsParams = {}): Promise<
 }
 
 export async function getPostBySlug(slug: string): Promise<PostWithAuthor | null> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("posts")
     .select(POST_SELECT)
@@ -133,14 +133,14 @@ export async function getPostBySlug(slug: string): Promise<PostWithAuthor | null
 }
 
 export async function getPostById(id: string): Promise<PostWithAuthor | null> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("posts").select(POST_SELECT).eq("id", id).maybeSingle();
   if (error || !data) return null;
   return normalizeRow(data as Record<string, unknown>);
 }
 
 export async function listOwnPosts(authorId: string): Promise<PostWithAuthor[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("posts")
     .select(POST_SELECT)
@@ -171,7 +171,7 @@ export async function listOwnPosts(authorId: string): Promise<PostWithAuthor[]> 
 }
 
 export async function listPostsThisWeek(weekStart: string): Promise<PostWithAuthor[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("posts")
     .select(POST_SELECT)

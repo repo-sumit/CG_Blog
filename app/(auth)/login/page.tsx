@@ -7,11 +7,12 @@ import { BrandLockup } from "@/components/portal/BrandLockup";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: { redirect?: string; error?: string; code?: string };
-}) {
+export default async function LoginPage(
+  props: {
+    searchParams: Promise<{ redirect?: string; error?: string; code?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const safeRedirect = safeRedirectPath(searchParams.redirect, "/dashboard");
   if (searchParams.code) {
     const params = new URLSearchParams({ code: searchParams.code, redirect: safeRedirect });

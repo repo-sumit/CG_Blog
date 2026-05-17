@@ -10,7 +10,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export const metadata: Metadata = { title: "Edit post" };
 export const dynamic = "force-dynamic";
 
-export default async function EditPostPage({ params }: { params: { id: string } }) {
+export default async function EditPostPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { profile, userId } = await requireAuthor();
   const [post, tags] = await Promise.all([getPostById(params.id), listTags()]);
   if (!post) notFound();
@@ -24,7 +25,7 @@ export default async function EditPostPage({ params }: { params: { id: string } 
   // fall back to "no cover".
   let cover: { id: string; url: string } | null = null;
   if (post.cover_media_id) {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     const { data } = await supabase
       .from("media_assets")
       .select("id, storage_path")

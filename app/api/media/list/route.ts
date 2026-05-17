@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid postId" }, { status: 400 });
   }
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

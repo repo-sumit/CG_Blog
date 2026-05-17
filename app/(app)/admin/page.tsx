@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminHomePage() {
   await requireManager();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const wk = weekStartISO();
 
   const [{ count: teamCount }, { count: publishedCount }, { count: draftsCount }, { count: submittedCount }] = await Promise.all([

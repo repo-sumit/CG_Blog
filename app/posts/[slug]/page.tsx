@@ -30,7 +30,8 @@ import { getSessionContext } from "@/lib/auth/guards";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const post = await getPublicPostBySlug(params.slug);
   if (!post) return { title: "Not found" };
 
@@ -76,7 +77,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function PublicPostPage({ params }: { params: { slug: string } }) {
+export default async function PublicPostPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const post = await getPublicPostBySlug(params.slug);
   if (!post) notFound();
 
@@ -93,6 +95,32 @@ export default async function PublicPostPage({ params }: { params: { slug: strin
 
   const safeHtml = sanitizeHtml(post.content_html);
   const isAdmin = session?.profile.role === "manager";
+
+  // BlogPosting JSON-LD — drives Google rich snippets and knowledge-graph
+  // integration. `JSON.stringify` is XSS-safe here because every interpolated
+  // value comes from our own DB, never raw user input.
+  const base = (publicEnv.appUrl || "").replace(/\/$/, "");
+  const postUrl = `${base}/posts/${post.slug}`;
+  const authorName = post.author?.full_name ?? post.author?.email ?? "ConveGenius Team";
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.excerpt ?? undefined,
+    image: [getPostOgImageUrl(post)],
+    datePublished: post.published_at ?? undefined,
+    dateModified: post.updated_at ?? post.published_at ?? undefined,
+    author: {
+      "@type": "Person",
+      name: authorName,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "ConveGenius",
+      logo: { "@type": "ImageObject", url: `${base}/cg.png` },
+    },
+    mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },
+  };
   // Contributors (authors + managers) don't need to be pitched the newsletter
   // — they are the people producing it. Hide the in-post subscribe surfaces
   // for them so the editorial flow stays clean.
@@ -105,6 +133,10 @@ export default async function PublicPostPage({ params }: { params: { slug: strin
 
   return (
     <div className="flex min-h-screen flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <PublicNav />
 
       <main className="flex-1">

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
   await requireManager();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const [{ data: allow }, { data: profiles }] = await Promise.all([
     supabase.from("authorized_users").select("*").order("email"),
     supabase.from("profiles").select("*").order("created_at", { ascending: false }),

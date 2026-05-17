@@ -31,11 +31,12 @@ interface SearchParams {
  * status is a `searchParams.status` enum, both folded into the query so we
  * never ship the full subscriber list to the client.
  */
-export default async function SubscribersAdminPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
+export default async function SubscribersAdminPage(
+  props: {
+    searchParams: Promise<SearchParams>;
+  }
+) {
+  const searchParams = await props.searchParams;
   await requireManager();
   const service = createSupabaseServiceClient();
 

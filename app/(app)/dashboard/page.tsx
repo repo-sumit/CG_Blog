@@ -21,10 +21,10 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   // Dashboard is editor-only — Gmail commenters get bounced to /unauthorized.
   const { profile, userId } = await requireAuthor();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const wk = weekStartISO();
   // When View Mode is active, every UI gate evaluates as a plain viewer.
-  const role = effectiveRole(profile.role);
+  const role = await effectiveRole(profile.role);
 
   type SubmittedRow = {
     id: string;

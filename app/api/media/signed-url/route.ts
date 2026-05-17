@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const path = request.nextUrl.searchParams.get("path");
   if (!path) return NextResponse.json({ error: "Missing path" }, { status: 400 });
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

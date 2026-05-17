@@ -11,17 +11,18 @@ import { weekStartISO } from "@/lib/utils/dates";
 export const metadata: Metadata = { title: "New post" };
 export const dynamic = "force-dynamic";
 
-export default async function NewEditorPage({
-  searchParams,
-}: {
-  searchParams: { force?: string };
-}) {
+export default async function NewEditorPage(
+  props: {
+    searchParams: Promise<{ force?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const { profile, userId } = await requireAuthor();
 
   // Avoid accidentally creating a second draft for the same week. If one exists,
   // route the author to it. Override with /editor/new?force=1.
   if (searchParams.force !== "1") {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     const { data: existing } = await supabase
       .from("posts")
       .select("id")

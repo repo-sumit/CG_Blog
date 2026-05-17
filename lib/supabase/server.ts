@@ -14,9 +14,9 @@ import { publicEnv, serverEnv, assertPublicSupabaseEnv } from "@/lib/env";
 // still enforced by the SQL schema + RLS. Swap in generated types later if
 // stricter compile-time safety is desired.
 
-export function createSupabaseServerClient() {
+export async function createSupabaseServerClient() {
   assertPublicSupabaseEnv();
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   return createServerClient(publicEnv.supabaseUrl, publicEnv.supabasePublishableKey, {
     cookies: {
       getAll() {

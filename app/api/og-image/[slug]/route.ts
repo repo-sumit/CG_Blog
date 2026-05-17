@@ -27,10 +27,8 @@ const SIGNED_TTL = 60 * 60 * 24 * 7;
  * reason), redirect to `/og-default.png` so previews still show a branded
  * image instead of breaking entirely.
  */
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { slug: string } },
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const defaultUrl = new URL("/og-default.png", publicEnv.appUrl).toString();
 
   const service = createSupabaseServiceClient();

@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
   // Identify the viewer if signed in.
   let viewerId: string | null = null;
   try {
-    const authed = createSupabaseServerClient();
+    const authed = await createSupabaseServerClient();
     const {
       data: { user },
     } = await authed.auth.getUser();

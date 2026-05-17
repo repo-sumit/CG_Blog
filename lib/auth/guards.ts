@@ -11,7 +11,7 @@ export interface SessionContext {
 }
 
 export async function getSessionContext(): Promise<SessionContext | null> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -44,7 +44,7 @@ export async function requireSession(): Promise<SessionContext> {
  */
 export async function requireAuthor(): Promise<SessionContext> {
   const ctx = await requireSession();
-  if (isViewModeActive()) redirect("/dashboard");
+  if (await isViewModeActive()) redirect("/dashboard");
   if (ctx.profile.role !== "author" && ctx.profile.role !== "manager") {
     redirect("/unauthorized?reason=editor");
   }
@@ -54,7 +54,7 @@ export async function requireAuthor(): Promise<SessionContext> {
 /** Require an admin actor. Non-admins bounced to /unauthorized. */
 export async function requireManager(): Promise<SessionContext> {
   const ctx = await requireSession();
-  if (isViewModeActive()) redirect("/dashboard");
+  if (await isViewModeActive()) redirect("/dashboard");
   if (ctx.profile.role !== "manager") {
     redirect("/unauthorized?reason=editor");
   }

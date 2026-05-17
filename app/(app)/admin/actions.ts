@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireManager } from "@/lib/auth/guards";
@@ -19,7 +19,7 @@ export async function setWeekday(input: z.infer<typeof WeekdayInput>): Promise<A
   const parsed = WeekdayInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   await requireManager();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Advisory uniqueness — refuse if another active team member already owns
   // the requested weekday. Manager can clear the other person first, then assign.
@@ -61,7 +61,7 @@ export async function upsertAuthorizedUser(
   const parsed = UpsertAuthorizedInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   await requireManager();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const email = parsed.data.email.trim().toLowerCase();
 
   // Refuse non-domain emails — RLS would block their first sign-in anyway,
@@ -95,7 +95,7 @@ export async function removeAuthorizedUser(email: string): Promise<ActionResult>
   const parsed = z.string().email().max(254).safeParse(email);
   if (!parsed.success) return { ok: false, error: "Invalid email." };
   const { profile } = await requireManager();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const clean = parsed.data.trim().toLowerCase();
 
   // Prevent the only manager from removing themselves and locking the project
@@ -133,7 +133,7 @@ export async function createTag(input: z.infer<typeof TagInput>): Promise<Action
   const parsed = TagInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   await requireManager();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const name = parsed.data.name.trim();
   const slug = slugify(name);
 
@@ -151,7 +151,7 @@ export async function createTag(input: z.infer<typeof TagInput>): Promise<Action
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/tags");
   revalidatePath("/");
-  revalidateTag(PUBLIC_FEED_TAG);
+  updateTag(PUBLIC_FEED_TAG);
   return { ok: true };
 }
 
@@ -159,11 +159,11 @@ export async function deleteTag(id: string): Promise<ActionResult> {
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, error: "Invalid tag id." };
   await requireManager();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("tags").delete().eq("id", parsed.data);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/tags");
-  revalidateTag(PUBLIC_FEED_TAG);
+  updateTag(PUBLIC_FEED_TAG);
   return { ok: true };
 }
 
@@ -179,7 +179,7 @@ export async function setPostStatus(
   const parsed = PostStatusInput.safeParse({ postId, status });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   await requireManager();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Look up existing row so we can set published_at only on transition to "published"
   // (avoids overwriting the original publish timestamp on re-publish).
@@ -199,6 +199,6 @@ export async function setPostStatus(
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin");
   revalidatePath("/");
-  revalidateTag(PUBLIC_FEED_TAG);
+  updateTag(PUBLIC_FEED_TAG);
   return { ok: true };
 }

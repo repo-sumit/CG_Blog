@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   if (!path) return new NextResponse("Missing path", { status: 400 });
   if (!PATH_RE.test(path)) return new NextResponse("Invalid path", { status: 400 });
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

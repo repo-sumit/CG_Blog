@@ -27,6 +27,33 @@ function srcOf(attrs: string): string | null {
 const TAG_RE = /<\/?([a-zA-Z][a-zA-Z0-9]*)([^>]*)>/g;
 const FORBIDDEN_TAGS = new Set(["script", "object", "embed", "form", "input", "style", "link", "meta"]);
 
+const H1_TAG_RE = /<(\/?)h1(\b[^>]*)>/gi;
+const HEADING_TAG_RE = /<(\/?)h([1-6])(\b[^>]*)>/gi;
+
+// Page title owns <h1>; article body must start at <h2> so screen readers
+// see a continuous outline. We rewrite headings in two passes:
+//   1. Any <h1> in the body becomes <h2>.
+//   2. If the body has no <h2> after step 1 but does have <h3> or deeper, we
+//      promote everything up one level so the first heading is <h2>.
+function normalizeHeadingLevels(html: string): string {
+  let out = html.replace(H1_TAG_RE, "<$1h2$2>");
+
+  if (!/<h2\b/i.test(out)) {
+    let deepest = 0;
+    out.replace(HEADING_TAG_RE, (_m, _close, level: string) => {
+      const n = Number(level);
+      if (n > deepest) deepest = n;
+      return "";
+    });
+    if (deepest >= 3) {
+      out = out.replace(HEADING_TAG_RE, (_m, close: string, level: string, rest: string) => {
+        return `<${close}h${Math.max(2, Number(level) - 1)}${rest}>`;
+      });
+    }
+  }
+  return out;
+}
+
 export function sanitizeHtml(input: string): string {
   if (!input) return "";
   let html = input;
@@ -55,5 +82,7 @@ export function sanitizeHtml(input: string): string {
     if (FORBIDDEN_TAGS.has(tag.toLowerCase())) return "";
     return match;
   });
+
+  html = normalizeHeadingLevels(html);
   return html;
 }

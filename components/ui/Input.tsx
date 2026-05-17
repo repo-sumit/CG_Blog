@@ -1,11 +1,17 @@
 import * as React from "react";
 import { cn } from "@/lib/utils/cn";
 
+// Inputs use rounded-lg so the multi-line <Textarea> shares the same radius
+// without looking like a stretched pill. Buttons keep `rounded-pill` because
+// they're the action element and benefit from standing out.
+const fieldFocus =
+  "focus-visible:outline-none focus-visible:border-portal-blue focus-visible:ring-2 focus-visible:ring-portal-blue focus-visible:ring-offset-2 focus-visible:ring-offset-portal-main";
+
 const inputBase = [
-  "flex h-11 w-full rounded-pill border-2 border-portal-border-muted bg-portal-panel-soft",
+  "flex h-11 w-full rounded-lg border-2 border-portal-border-muted bg-portal-panel-soft",
   "px-4 py-2 text-sm font-ui text-portal-text",
   "placeholder:text-portal-text-soft",
-  "focus-visible:outline-none focus-visible:border-portal-blue focus-visible:shadow-[0_0_0_4px_rgba(79,140,255,0.18)]",
+  fieldFocus,
   "disabled:cursor-not-allowed disabled:opacity-50",
   "transition-colors",
 ].join(" ");
@@ -24,10 +30,10 @@ export const Textarea = React.forwardRef<
   <textarea
     ref={ref}
     className={cn(
-      "flex min-h-[88px] w-full rounded-md border-2 border-portal-border-muted bg-portal-panel-soft",
+      "flex min-h-[88px] w-full rounded-lg border-2 border-portal-border-muted bg-portal-panel-soft",
       "px-4 py-2.5 text-sm font-ui text-portal-text",
       "placeholder:text-portal-text-soft",
-      "focus-visible:outline-none focus-visible:border-portal-blue focus-visible:shadow-[0_0_0_4px_rgba(79,140,255,0.18)]",
+      fieldFocus,
       "disabled:cursor-not-allowed disabled:opacity-50",
       className,
     )}

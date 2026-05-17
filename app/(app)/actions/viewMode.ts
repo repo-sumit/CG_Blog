@@ -19,7 +19,7 @@ export async function setViewMode(enabled: boolean): Promise<{ ok: true }> {
   // server-action endpoint.
   await requireSession();
 
-  const jar = cookies();
+  const jar = await cookies();
   if (enabled) {
     jar.set(VIEW_MODE_COOKIE, "member", {
       httpOnly: true,

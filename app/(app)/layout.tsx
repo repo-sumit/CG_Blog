@@ -6,8 +6,8 @@ import { ViewModeBanner } from "@/components/layout/ViewModeBanner";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
-  const viewModeActive = isViewModeActive();
-  const role = effectiveRole(session.profile.role);
+  const viewModeActive = await isViewModeActive();
+  const role = await effectiveRole(session.profile.role);
 
   return (
     <div className="flex min-h-screen flex-col">

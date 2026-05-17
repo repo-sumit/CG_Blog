@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   // this, an attacker could craft /login?redirect=https://evil.example.com to
   // turn our auth flow into an open redirect (classic phishing pivot).
   const redirectPath = safeRedirectPath(url.searchParams.get("redirect"), "/dashboard");
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);

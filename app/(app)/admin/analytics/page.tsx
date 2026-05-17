@@ -15,7 +15,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default async function AnalyticsPage() {
   await requireManager();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   // Service client for cross-cutting aggregates (post_views, subscribers) so
   // RLS doesn't have to be widened to all managers individually.
   const service = createSupabaseServiceClient();

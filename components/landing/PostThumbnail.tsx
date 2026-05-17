@@ -38,7 +38,7 @@ export function PostThumbnail({ url, title, slug, className }: Props) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={url}
-          alt={title}
+          alt={`Cover image for ${title}`}
           loading="lazy"
           className="h-full w-full object-cover"
         />
@@ -77,7 +77,7 @@ export function PostThumbnail({ url, title, slug, className }: Props) {
       style={{
         background: `linear-gradient(135deg, ${palette.from} 0%, ${palette.to} 100%)`,
       }}
-      aria-label={title}
+      aria-label={`Placeholder cover for ${title}`}
       role="img"
     >
       {/* ── Pattern stack — layered back-to-front, all pointer-events:none ── */}

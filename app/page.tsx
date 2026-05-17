@@ -70,7 +70,8 @@ interface SearchParams {
   q?: string;
 }
 
-export default async function PublicLandingPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function PublicLandingPage(props: { searchParams: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
   // OAuth fallthrough — forward stray ?code= to the real callback.
   if ("code" in searchParams) {
     const code = (searchParams as { code?: string }).code;

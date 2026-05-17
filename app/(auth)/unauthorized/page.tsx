@@ -8,11 +8,12 @@ export const metadata: Metadata = { title: "Access denied" };
 
 const ALLOWED_DOMAIN = process.env.APP_ALLOWED_EMAIL_DOMAIN ?? "convegenius.ai";
 
-export default function UnauthorizedPage({
-  searchParams,
-}: {
-  searchParams: { reason?: string };
-}) {
+export default async function UnauthorizedPage(
+  props: {
+    searchParams: Promise<{ reason?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const reason = searchParams.reason;
   const isEditorBlock = reason === "editor";
 

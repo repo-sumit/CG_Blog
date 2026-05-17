@@ -15,8 +15,8 @@ interface Props {
   canManageSchedule?: boolean;
 }
 
-export function WeeklyScheduleCard({ team, postsByAuthorThisWeek, canManageSchedule = false }: Props) {
-  const showManageLink = canManageSchedule && !isViewModeActive();
+export async function WeeklyScheduleCard({ team, postsByAuthorThisWeek, canManageSchedule = false }: Props) {
+  const showManageLink = canManageSchedule && !(await isViewModeActive());
   const today = todayWeekday();
   const byDay: Record<number, ProfileRow | undefined> = {};
   for (const m of team) if (m.weekly_post_day) byDay[m.weekly_post_day] = m;

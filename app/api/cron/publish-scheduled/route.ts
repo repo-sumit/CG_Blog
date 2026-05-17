@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     // waiting up to 60s for the unstable_cache TTL.
     revalidatePath("/");
     revalidatePath(`/posts/${r.slug}`);
-    revalidateTag(PUBLIC_FEED_TAG);
+    revalidateTag(PUBLIC_FEED_TAG, "default");
     // Idempotent — `sendPerPostNewsletter` claims the post via a conditional
     // newsletter_sent_at update, so retries / double-runs never duplicate mail.
     const dispatch = await sendPerPostNewsletter(r.id);

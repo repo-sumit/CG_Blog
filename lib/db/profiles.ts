@@ -4,7 +4,7 @@ import type { ProfileRow } from "@/lib/db/types";
 import { teamDisplayOrderFor } from "@/lib/team";
 
 export async function listTeam(): Promise<ProfileRow[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   // SQL pre-sort by weekly_post_day so the schedule view's primary grouping
   // is intact; final order is decided in JS by `TEAM_META.displayOrder` so
   // every list of teammates (admin schedule, dashboard team panel, analytics
@@ -28,7 +28,7 @@ export async function listTeam(): Promise<ProfileRow[]> {
 }
 
 export async function listAllProfiles(): Promise<ProfileRow[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("profiles")
     .select("*")

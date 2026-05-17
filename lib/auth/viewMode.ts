@@ -16,9 +16,10 @@ export const VIEW_MODE_COOKIE = "cg_view_mode";
 const VIEW_MODE_VALUE = "member";
 
 /** True if the current request is in view-as-member mode. */
-export function isViewModeActive(): boolean {
+export async function isViewModeActive(): Promise<boolean> {
   try {
-    const c = cookies().get(VIEW_MODE_COOKIE);
+    const store = await cookies();
+    const c = store.get(VIEW_MODE_COOKIE);
     return c?.value === VIEW_MODE_VALUE;
   } catch {
     return false;
@@ -30,6 +31,6 @@ export function isViewModeActive(): boolean {
  * view mode is active. Use this anywhere you'd otherwise read `profile.role`
  * to decide whether to show an edit/admin control.
  */
-export function effectiveRole(actualRole: AppRole): AppRole {
-  return isViewModeActive() ? "viewer" : actualRole;
+export async function effectiveRole(actualRole: AppRole): Promise<AppRole> {
+  return (await isViewModeActive()) ? "viewer" : actualRole;
 }

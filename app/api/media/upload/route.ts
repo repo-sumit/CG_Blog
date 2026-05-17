@@ -44,7 +44,7 @@ const Body = z.object({
  *   3. Mime and size must pass the same caps as before.
  */
 export async function POST(request: NextRequest) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
