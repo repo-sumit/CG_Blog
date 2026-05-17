@@ -2,9 +2,10 @@
 
 > A retro-futuristic internal blog + newsletter for the ConveGenius.ai team.
 > Public reading, private editing, Mon–Fri publishing cadence, per-post
-> newsletter delivery, soft-deletes with auto-purge, comments, reactions,
-> contributor profiles, OG-safe social previews, light/dark theming, and a
-> five-person editor allowlist — built on Next.js 14 + Supabase + Resend.
+> newsletter delivery, soft-deletes, comments, reactions, contributor profiles,
+> OG-safe social previews, structured discovery metadata, rate-limited public
+> writes, Sentry observability, light/dark theming, and a five-person editor
+> allowlist — built on Next.js 16 + React 19 + Supabase + Resend.
 
 **Production:** [convegenius-blog.vercel.app](https://convegenius-blog.vercel.app)
 
@@ -32,6 +33,7 @@
 18. [Known limitations](#18-known-limitations)
 19. [Future scope](#19-future-scope)
 20. [Troubleshooting](#20-troubleshooting)
+21. [Docs index](#docs-index)
 
 ---
 
@@ -61,7 +63,9 @@ they publish.
 
 ### Non-goals
 - Not a public CMS — the editor allowlist is hard-pinned to 5 emails.
-- Not a marketing site — `robots: noindex` on the entire app (`app/layout.tsx` metadata).
+- Not a growth-marketing site — public reader pages are indexable, but
+  editor/admin/API/auth surfaces are blocked in `robots.ts` and non-canonical
+  Vercel hosts are 308-redirected to the production domain.
 - Not a federation hub — no API for external systems to post on behalf of users.
 - Not a long-form discussion forum — comments are 100-char plain text, not threaded.
 
@@ -70,18 +74,19 @@ they publish.
 ## 2. Feature inventory
 
 ### Public reading (no login)
-- **Landing page** at `/` — hero, search box, channel/tag filter pills, fluid post grid, contributor crew section, subscribe block, footer
+- **Landing page** at `/` — hero, live cadence readout, search box, channel/tag filter pills, section running-heads, fluid post grid with a `Latest` badge, contributor crew section, subscribe block, footer
 - **Post detail** at `/posts/[slug]` — sanitized rich-text body, author byline with avatar + role, view count, read time, reaction bar, comment thread, mid-article + bottom subscribe blocks, related posts grid, share button (Web Share API + clipboard fallback)
 - **Search** — `?q=` matches against title + excerpt in memory (the catalog is small)
 - **Channel filter** — `?tag=<slug>` filters the grid; both filters compose
 - **Fluid responsive grid** — auto-fit columns based on container width (≥320 px floor per card), reflows on browser zoom without snap-breakpoints
 - **Stable Open Graph + Twitter cards** — `/api/og-image/[slug]` proxy 302-redirects to a fresh signed cover URL every crawler hit, so WhatsApp / LinkedIn / Slack / Twitter previews never break when the underlying signed URL rotates
+- **Structured discovery metadata** — `/sitemap.xml` lists home, the archive alias, and published post URLs; `/robots.txt` allows public reader pages while disallowing private surfaces; post pages emit `BlogPosting` JSON-LD
 - **Brand fallback image** — `/og-default.png` for posts without a cover
 - **Live engagement counts** on cards — views (👁), reactions (❤️), comments (💬)
 - **Trailing first-name byline** — `…  6👁  2❤️  3💬                Insha` keeps the card scannable
 - **Reading-experience nicety** — drafts and scheduled posts return 404; never leaked to public callers
 - **Social preview testing endpoints** — direct-fetchable `/api/og-image/[slug]` for Facebook / LinkedIn / Twitter validator tools
-- **Robots noindex** across the whole app so non-canonical Vercel preview URLs aren't crawled
+- **Canonical host enforcement** — preview / generated Vercel hosts redirect to `NEXT_PUBLIC_APP_URL`, keeping cookies, shared links, and social previews pinned to one origin
 
 ### Authentication
 - **Google OAuth** (any Google account — Workspace, Gmail, ConveGenius)
@@ -94,7 +99,7 @@ they publish.
 - **Pre-hydration session** via Supabase SSR cookies — pages load with the user's session already resolved server-side
 
 ### Engagement (any signed-in user)
-- **6-emoji reaction bar** — 👍 ❤️ 😂 🎉 👀 🚀 — multi-react allowed; tap again to remove
+- **6-reaction bar** — Like / Love / Funny / Celebrate / Watching / Launch use accessible Lucide icon buttons while preserving the emoji keys (`👍 ❤️ 😂 🎉 👀 🚀`) in the database; multi-react allowed; tap again to remove
 - **Optimistic UI** for reactions — toggle reflects instantly, server reconciles
 - **Plain-text comments** — 100-char body limit, soft-deletable, live counter with red/yellow/green tone
 - **Soft-delete** — comment author + post author + admins can delete; deleted rows excluded by reads
@@ -103,6 +108,7 @@ they publish.
 
 ### Writing (5-person editor allowlist)
 - **TipTap rich-text editor** at `/editor/new` (alias `/transmit`) and `/editor/[id]`
+- **Lazy editor bundle** — `PostEditorLoader` keeps TipTap and custom extensions out of non-editor routes and shows an authenticated skeleton while the editor chunk loads client-side
 - **Three-button publish workflow** — Save Draft / Schedule Post / Post Now (or Submit for Review when manager review is enabled)
 - **Status workflow** — `draft → submitted (optional) → scheduled → published → archived`
 - **Server autosave** every 15 s of inactivity
@@ -117,7 +123,7 @@ they publish.
 - **Scheduled publishing** — calendar/time picker, 09:00 UTC default slot, modal validation
 - **Revert to draft** — single click un-publishes a published or scheduled post and clears the schedule
 - **Weekly template** — load a starter outline (`WEEKLY_TEMPLATE`) into a fresh draft
-- **Body media inserts** — image / video / audio uploaded via **direct browser → Supabase Storage** (`lib/media/direct-upload.ts`), bypassing Vercel's 4.5 MB function payload limit; videos up to 50 MB free-tier, raisable to 200 MB on Supabase Pro
+- **Body media inserts** — image / video / audio uploaded via **direct browser → Supabase Storage** (`lib/media/direct-upload.ts`), bypassing Vercel's 4.5 MB function payload limit; the API only registers metadata after upload and enforces ownership, MIME, size, and rate-limit checks
 - **External video embeds** — YouTube, Vimeo, Loom, Google Drive (sandbox-allowlisted iframes via `EmbedBlock` Node extension)
 - **HTML sanitizer** (`lib/editor/sanitize.ts`) — strips scripts / event handlers / `javascript:` URLs; gates iframes to the embed allow-list; sets `referrerpolicy="strict-origin-when-cross-origin"` so unlisted YouTube videos don't trip error 153
 - **Server-action serialization safety** — TipTap JSON is `JSON.parse(JSON.stringify(...))`'d before crossing the Server Action boundary so non-prototype-clean nodes don't trip Next's serializer
@@ -129,6 +135,7 @@ they publish.
 
 ### Newsletter (Resend integration)
 - **Single opt-in subscribe form** on landing + on every public post page (bottom + mid-article inline CTA on long posts)
+- **Subscribe rate limit** — optional Upstash Redis sliding-window limiter caps subscribe attempts at 5 / minute per IP and returns standard `X-RateLimit-*` headers on 429 responses
 - **Compact subscribe variant** on post pages — same component, drops the gradient halo so it reads as editorial rather than marketing
 - **Contributor-hide** — logged-in authors/managers don't see the subscribe blocks on post pages (they drive the newsletter, no need to pitch it)
 - **Mid-article CTA** — server-side split of sanitized article HTML at the paragraph break closest to ~55% of the document; gated on ≥400 words + ≥4 break points so short posts never get it
@@ -177,6 +184,13 @@ they publish.
 - `/admin/analytics` — completion %, posts per author, missed days, total/today/7d post views, top 5 posts, engagement-by-post table, audience mix (logged-in vs anonymous), active subscriber count
 - `/admin/subscribers` — manager-gated table of every newsletter signup with status (active/unsubscribed), source, signup date, unsubscribe date; server-side email search + status filter pills; capped at 500 rows
 - `/admin/newsletter-diagnostics` — debug endpoint surfacing Resend config, sandbox state, last delivery error
+
+### Runtime safety + observability
+- **Boot-time env validation** — `instrumentation.ts` warns in development, refuses broken production boots when required env vars are missing, and enforces a minimum-length `CRON_SECRET`
+- **Sentry for browser/server/edge** — client, server, and edge configs initialize only when DSNs are present; Server Component / route-handler errors flow through `onRequestError`
+- **Sentry tunnel** — `next.config.mjs` proxies browser events through `/monitoring` to reduce ad-blocker drops; source-map upload is enabled when Sentry org/project/auth env vars exist
+- **Global security headers** — every route gets `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, strict-origin referrer policy, and a restrictive Permissions Policy
+- **Public write rate limits** — `lib/ratelimit.ts` protects newsletter subscribe and authenticated media-registration endpoints when Upstash REST credentials are configured
 
 ### Contributors section
 - Public `/#contributors` block on the landing page
@@ -233,7 +247,7 @@ Two-tier role. The DB enum is `viewer | author | manager`; the UI surfaces `mana
 - Admins: everything authors can do + manage all posts; manage allowlist, schedule, tags, subscribers; delete any comment; hard-delete archived posts; access `/admin/*`
 
 ### Enforcement layers (defense in depth)
-1. **Middleware** (`lib/supabase/middleware.ts`) gates non-public routes by session presence; the `PUBLIC_PATHS` list scopes which routes anonymous traffic can reach
+1. **Next proxy + middleware helper** (`proxy.ts` → `lib/supabase/middleware.ts`) refreshes Supabase SSR cookies, canonicalizes the host, and gates non-public routes by session presence; the `PUBLIC_PATHS` list scopes which routes anonymous traffic can reach
 2. **Page guards** (`lib/auth/guards.ts`) — `requireAuthor()` / `requireManager()` redirect non-editors to `/unauthorized?reason=editor`
 3. **Server actions** — every action begins with Zod-validated input + a `requireSession()` / `requireAuthor()` / `requireManager()` call
 4. **Supabase RLS** — defense in depth on every public table; helper functions are `security definer` with locked `search_path`
@@ -246,7 +260,8 @@ Two-tier role. The DB enum is `viewer | author | manager`; the UI surfaces `mana
 
 | Layer | Choice | Why |
 |---|---|---|
-| Framework | **Next.js 14 (App Router)** | Server components + server actions + ISR; edge middleware for auth |
+| Framework | **Next.js 16 (App Router)** | Server components + server actions + ISR; `proxy.ts` auth/canonical-host gate |
+| UI runtime | **React 19** | current app-router runtime + client components for editor, comments, reactions, subscribe, and theme UI |
 | Language | **TypeScript (strict)** | catches half the bugs at compile time; no `any` allowed |
 | Database | **Supabase Postgres** | free tier covers a 5-person team; RLS native; easy migrations |
 | Auth | **Supabase Auth** (Google OAuth + magic link) | works with Workspace + Gmail; no separate identity provider |
@@ -257,12 +272,14 @@ Two-tier role. The DB enum is `viewer | author | manager`; the UI surfaces `mana
 | Validation | **Zod** | one schema for the action input + the runtime check |
 | Notifications | **Sonner** | tiny, themeable, accessible toasts |
 | Icons | **lucide-react** | tree-shakeable, consistent |
-| Transactional email | **Resend** | Node SDK, RFC 8058 headers, sandbox / verified domain modes |
+| Transactional email | **Resend** | lightweight REST wrapper, RFC 8058 headers, sandbox / verified domain modes |
 | Hosting | **Vercel** | free tier; cron jobs; edge analytics; serverless functions |
-| Telemetry | **Vercel Analytics** + **Speed Insights** | event tracking + web-vitals; SSR-safe; no tracking pixels |
+| Product telemetry | **Vercel Analytics** + **Speed Insights** | event tracking + web-vitals; SSR-safe; no tracking pixels |
+| Error monitoring | **Sentry for Next.js** | browser/server/edge capture, request-error hook, optional source maps, `/monitoring` tunnel |
+| Rate limiting | **Upstash Redis** (`@upstash/ratelimit`) | sliding-window limits for public subscribe + authenticated media-registration endpoints |
 | Tests | **Vitest** (unit) + **Playwright** (e2e) | unit for utilities, Playwright for the auth flow |
 
-No SWR / React Query. The app is overwhelmingly server-rendered; ISR + `unstable_cache` + `revalidateTag` provide the stale-while-revalidate pattern at the server boundary. See `docs/frontend-cache-audit.md` for the full reasoning.
+No SWR / React Query. The app is overwhelmingly server-rendered; ISR + `unstable_cache` + tag invalidation (`updateTag` from server actions, `revalidateTag` from cron route handlers) provide the stale-while-revalidate pattern at the server boundary. See `docs/frontend-cache-audit.md` for the full reasoning.
 
 ---
 
@@ -270,6 +287,7 @@ No SWR / React Query. The app is overwhelmingly server-rendered; ISR + `unstable
 
 ### Render model
 - **Server Components** by default — every page in `app/` resolves its data on the server before the response is sent
+- **Next 16 async route props** — dynamic `params` and `searchParams` are awaited in pages / metadata handlers before use
 - **Client Components** opt in with `"use client"` — used only for interactive surfaces (reactions, comments form, share button, subscribe form, theme toggle, post-view tracker, editor)
 - **Server Actions** with `"use server"` for every mutation — Zod-validated inputs, ownership checks, revalidation calls, structured `{ ok, error? }` returns
 
@@ -287,7 +305,7 @@ async function someAction(input: T): Promise<{ ok: boolean; error?: string }> {
   // 2. requireSession / requireAuthor / requireManager
   // 3. Cross-check ownership via DB lookup if needed
   // 4. Use service-role client for the mutation (actor already verified)
-  // 5. revalidatePath + revalidateTag for every affected surface
+  // 5. revalidatePath + updateTag/revalidateTag for every affected surface
   // 6. Return { ok: true, ... } or { ok: false, error } — never throw across the wire
 }
 ```
@@ -296,7 +314,7 @@ async function someAction(input: T): Promise<{ ok: boolean; error?: string }> {
 
 | Surface | Strategy | TTL | Invalidator |
 |---|---|---|---|
-| Landing post grid / tags / contributor stats | `unstable_cache` keyed per limit, tagged `public-feed` | 60 s | `revalidateTag("public-feed")` on publish / archive / delete / tag CRUD / scheduled-publish cron |
+| Landing post grid / tags / contributor stats | `unstable_cache` keyed per limit, tagged `public-feed` | 60 s | `updateTag("public-feed")` from server actions; `revalidateTag("public-feed", "default")` from scheduled-publish cron |
 | Post detail page | `force-dynamic` | none | `revalidatePath("/posts/${slug}")` on publish / comment / reaction |
 | Admin / dashboard / my-posts | `force-dynamic` | none | direct `revalidatePath` on writes |
 | OG image proxy | `Cache-Control: public, max-age=3600, s-maxage=3600` | 1 h | n/a (fresh DB lookup per uncached hit) |
@@ -306,12 +324,18 @@ async function someAction(input: T): Promise<{ ok: boolean; error?: string }> {
 See `docs/frontend-cache-audit.md` for the full audit + per-surface rationale.
 
 ### Pre-hydration theme script
-`components/theme/ThemeScript.tsx` runs synchronously inside `<body>` *before* React mounts and stamps `data-theme="dark"` or `data-theme="light"` on `<html>` based on localStorage + OS preference, so the first paint matches the user's intended theme — no flash of wrong colors.
+`components/theme/ThemeScript.tsx` runs synchronously inside `<body>` *before* React mounts and stamps `data-theme="dark"` or `data-theme="light"` on `<html>` from localStorage, falling back to the explicit light default. There is no system mode, so first paint is deterministic and avoids a flash of wrong colors.
+
+### Runtime instrumentation
+- `instrumentation.ts` runs at process boot, validates required production env vars, warns on recommended observability/rate-limit env vars, and refuses production starts with a weak `CRON_SECRET`
+- `register()` imports runtime-specific Sentry config for Node or Edge
+- `onRequestError = Sentry.captureRequestError` sends Server Component and route-handler errors to Sentry when a DSN is configured
+- Browser errors use `sentry.client.config.ts`; server and edge errors use `sentry.server.config.ts` / `sentry.edge.config.ts`
 
 ### Cron
 `vercel.json` registers:
-- `/api/cron/keep-alive` (hourly) — pings Supabase to keep the project warm on free tier
-- `/api/cron/publish-scheduled` (hourly) — promotes posts whose `scheduled_for` has arrived to `published`, dispatches per-post newsletters, invalidates `public-feed` tag
+- `/api/cron/keep-alive` (`0 6 * * *`) — daily Supabase warm-up read for free-tier projects
+- `/api/cron/publish-scheduled` (`0 9 * * *`) — daily due-post promotion; promotes rows whose `scheduled_for` has arrived to `published`, dispatches per-post newsletters, invalidates the `public-feed` tag
 
 All cron requests authenticate via `Authorization: Bearer ${CRON_SECRET}`.
 
@@ -324,6 +348,8 @@ All cron requests authenticate via `Authorization: Bearer ${CRON_SECRET}`.
 |---|---|
 | `/` | Landing — hero, search, tag pills, post grid, contributors, subscribe, footer |
 | `/posts/[slug]` | Post detail with view tracker, share button, reactions, comments, mid-article + bottom subscribe, related posts |
+| `/sitemap.xml` | Dynamic sitemap for home, archive alias, and published post detail pages |
+| `/robots.txt` | Allows public reader pages; disallows admin/editor/API/auth surfaces; points at sitemap |
 | `/login` | Sign-in (Google OAuth + magic link) |
 | `/unauthorized` | Editor-access denied page (reason-coded) |
 
@@ -353,7 +379,7 @@ The auth callback (`/api/auth/callback`) bootstraps a profile for any Google acc
 |---|---|---|
 | GET | `/api/auth/callback?code=&redirect=` | Supabase OAuth + magic-link return URL |
 | POST | `/api/auth/signout` | Clears session, redirects to `/login` |
-| POST | `/api/media/upload` | Multipart upload (small files via Vercel; large files use direct upload helper) |
+| POST | `/api/media/upload` | Registers direct Supabase Storage uploads; author-only, ownership-checked, MIME/size-validated, rate-limited |
 | GET | `/api/media/file?path=...` | Re-signs a storage path; 302 + 50 min Cache-Control |
 | GET | `/api/media/signed-url?path=...` | Admin tooling; auth required |
 | GET | `/api/media/list?postId=...` | Cover-image picker source |
@@ -361,9 +387,10 @@ The auth callback (`/api/auth/callback`) bootstraps a profile for any Google acc
 | POST | `/api/subscribe` | Idempotent subscribe; welcome email + reactivation logic |
 | GET/POST | `/api/subscribe/unsubscribe?t=<token>` | Confirm + apply unsubscribe |
 | POST | `/api/analytics/post-view` | Insert into `post_views` (30 min dedupe per session) |
-| GET | `/api/cron/publish-scheduled` | Hourly — promote due scheduled posts + send newsletters |
-| GET | `/api/cron/keep-alive` | Hourly — Supabase keep-alive ping |
+| GET | `/api/cron/publish-scheduled` | Daily — promote due scheduled posts + send newsletters |
+| GET | `/api/cron/keep-alive` | Daily — Supabase keep-alive ping |
 | GET | `/api/admin/newsletter-diagnostics` | Manager-only debug endpoint for Resend config |
+| POST | `/monitoring` | Sentry browser-event tunnel configured by `withSentryConfig` |
 
 ### Redirects (legacy bookmarks)
 | Old | → | New |
@@ -373,7 +400,7 @@ The auth callback (`/api/auth/callback`) bootstraps a profile for any Google acc
 | `/my-posts` | → | `/me/posts` |
 | `/transmit` | → | `/editor/new` |
 | `/archive` | → | `/me/posts#trash` |
-| Non-canonical Vercel host | 308 → | `convegenius-blog.vercel.app` |
+| Non-canonical Vercel host | 308 → | `NEXT_PUBLIC_APP_URL` host |
 
 ---
 
@@ -465,7 +492,9 @@ media_assets (
 
 Every server action that affects publicly-visible state calls **both**:
 - `revalidatePath(<surface>)` — kicks the route segment's render cache
-- `revalidateTag("public-feed")` — busts the `unstable_cache` entries for landing-page reads
+- `updateTag("public-feed")` — expires the `unstable_cache` entries for landing-page reads immediately after editor/admin mutations
+
+The scheduled-publish route handler uses `revalidateTag("public-feed", "default")` instead, because cron runs outside a Server Action.
 
 This pairing is the contract that lets the public feed sit on a 60-second TTL safely.
 
@@ -491,7 +520,7 @@ The single `PUBLIC_FEED_TAG` is invalidated on:
 - post publish / archive / hard-delete
 - admin post-status change
 - tag CRUD (admin + author-shortcut)
-- cron `publish-scheduled` per row
+- cron `publish-scheduled` per promoted row
 
 ### Client-side
 - **No client cache library** (no SWR, no React Query)
@@ -508,14 +537,15 @@ The single `PUBLIC_FEED_TAG` is invalidated on:
 
 ### Subscribe flow
 1. User submits an email to `POST /api/subscribe` (`{ email, source }`)
-2. Zod validates the email + source length
-3. Service-role client looks up the existing subscriber by email
-4. Three branches:
+2. `checkRateLimit("subscribe", clientIp)` allows 5 attempts / 60 s when Upstash is configured; 429 responses include `X-RateLimit-*` headers
+3. Zod validates the email + source length
+4. Service-role client looks up the existing subscriber by email
+5. Three branches:
    - **New email** → insert + send welcome
    - **Previously unsubscribed** → clear `unsubscribed_at`, rotate token, re-send welcome
    - **Already active** → no DB change, friendly toast
-5. Welcome email is fire-and-forget — never blocks the API response
-6. Response always returns `{ ok: true }` to mitigate enumeration; errors logged server-side
+6. Welcome email is fire-and-forget — never blocks the API response
+7. Response always returns `{ ok: true }` for accepted requests to mitigate enumeration; errors are logged server-side
 
 ### Per-post send flow (Post Now)
 1. Editor calls `savePost(... status: "published")`
@@ -530,7 +560,7 @@ The single `PUBLIC_FEED_TAG` is invalidated on:
    - Per-recipient List-Unsubscribe URL embedded with the recipient's token
 
 ### Per-post send flow (scheduled cron)
-- `/api/cron/publish-scheduled` runs hourly via Vercel
+- `/api/cron/publish-scheduled` runs daily at `0 9 * * *` via Vercel
 - Selects `posts WHERE status = 'scheduled' AND scheduled_for <= now()`
 - Promotes each to `published`, sets `published_at = scheduled_for`
 - Calls `sendPerPostNewsletter` (same idempotent path)
@@ -558,20 +588,17 @@ The single `PUBLIC_FEED_TAG` is invalidated on:
 
 ## 11. Media pipeline
 
-### Direct upload (preferred for large media)
+### Direct upload (current media path)
 1. User picks a file in the editor
 2. Editor calls `directUploadMedia({ file, postId })` from `lib/media/direct-upload.ts`
-3. Helper requests a one-time signed upload URL from `/api/media/upload?direct=1`
-4. Browser PUTs the bytes directly to Supabase Storage — bypasses Vercel's 4.5 MB function payload cap
-5. Helper inserts a `media_assets` row tying the path back to the post
-6. Returns `{ signedUrl: "/api/media/file?path=..." }` — a STABLE URL the editor embeds
+3. Helper builds a storage path shaped as `{userId}/{postId|drafts}/{timestamp}-{filename}`
+4. Browser uploads bytes directly to Supabase Storage via the Supabase client — bypasses Vercel's 4.5 MB function payload cap
+5. Helper POSTs a tiny JSON metadata payload to `/api/media/upload`
+6. Route verifies the caller is an author/manager, rate-limits the request, validates path ownership, strips unsafe filename characters, checks MIME + size caps, and inserts the `media_assets` row
+7. Returns `{ signedUrl: "/api/media/file?path=..." }` — a stable URL the editor embeds
 
-### Server-side fallback upload (small files)
-1. Editor POSTs `multipart/form-data` to `/api/media/upload`
-2. Route validates MIME + size + UUID-shape of `postId`, builds path `{userId}/{postId|drafts}/{ts}-{filename}`
-3. Uploads to `blog-media` via the service-role client
-4. Inserts `media_assets` row
-5. Returns the same stable proxy URL
+### No server byte relay
+`/api/media/upload` no longer accepts `multipart/form-data` or streams file bytes through Vercel. All file data goes browser → Supabase Storage; the Next route only records metadata after the object exists.
 
 ### Per-request re-signing
 - Embedded URLs look like `/api/media/file?path=<storage-path>`
@@ -585,7 +612,8 @@ The single `PUBLIC_FEED_TAG` is invalidated on:
 ### Validation
 - MIME allow-list: `image/jpeg|png|webp|gif`, `video/mp4|webm|quicktime`, `audio/*` subset
 - Per-file size caps via env (`NEXT_PUBLIC_MAX_UPLOAD_MB`, video / audio variants)
-- Supabase bucket has a per-object byte cap (default 50 MB free tier; raisable on Pro)
+- Supabase bucket has a per-object byte cap (default 50 MB free tier; raise the bucket setting and env caps together if the project plan supports larger files)
+- Metadata registration is limited to 30 uploads / 60 s per authenticated user when Upstash is configured
 
 ### Custom TipTap nodes
 - `AudioBlock` — schema-aware `<audio>` element with playback chrome
@@ -611,7 +639,7 @@ Theme-independent:
 --leading-hero: 0.88;       --leading-title: 0.95;     --leading-body: 1.65;
 ```
 
-Theme palette (dark default; light variant under `[data-theme="light"]`):
+Theme palette (dark CSS fallback; light is stamped before first paint for first-time visitors):
 
 ```css
 --bg-main, --bg-page, --bg-panel, --bg-panel-raised, --bg-panel-soft, --bg-inverse
@@ -630,7 +658,7 @@ Theme palette (dark default; light variant under `[data-theme="light"]`):
 |---|---|---|
 | `Button` | `components/ui/Button.tsx` | 6 variants, pill, hairline border on cream CTAs |
 | `Card` | `components/ui/Card.tsx` | alias for `.portal-panel` |
-| `Input` / `Textarea` | `components/ui/Input.tsx` | pill input, blue focus glow |
+| `Input` / `Textarea` | `components/ui/Input.tsx` | rounded-lg fields with consistent focus ring |
 | `Badge` | `components/ui/Badge.tsx` | 8 tonal variants |
 | `Avatar` | `components/ui/Avatar.tsx` | initials fallback with border |
 | `Select` | `components/ui/Select.tsx` | custom theme arrow |
@@ -655,9 +683,9 @@ Theme palette (dark default; light variant under `[data-theme="light"]`):
 
 ## 13. Theming
 
-- **Pre-hydration script** (`components/theme/ThemeScript.tsx`) runs synchronously before paint; reads `localStorage.theme` + `prefers-color-scheme`; stamps `data-theme="dark"` or `data-theme="light"` on `<html>`
+- **Pre-hydration script** (`components/theme/ThemeScript.tsx`) runs synchronously before paint; reads `cg_signal_theme` from localStorage, falls back to `light`, and stamps `data-theme="dark"` or `data-theme="light"` on `<html>`
 - **Light theme as default** for first-time visitors (overrideable via the toggle)
-- **Theme toggle** (`components/theme/ThemeToggle.tsx`) — three positions: light / dark; persists to localStorage immediately
+- **Theme toggle** (`components/theme/ThemeToggle.tsx`) — two explicit modes: light / dark; persists to localStorage immediately
 - **No "system" mode** — user picks one explicitly; reduces test-matrix surface
 - **CSS-variable swap** — switching themes mutates `data-theme` only; no React re-render needed for the entire page; instant visual flip
 - See `docs/theme-system.md`, `docs/theme-light-default.md`, `docs/light-mode-guidelines.md` for full color rationale
@@ -670,7 +698,7 @@ Theme palette (dark default; light variant under `[data-theme="light"]`):
 git clone <repo>
 cd CG_Blog
 npm install
-copy .env.example .env.local   # then fill in
+New-Item -ItemType File .env.local -Force   # then fill in vars from section 16
 npm run dev                    # http://localhost:3000
 ```
 
@@ -694,7 +722,7 @@ npm run dev                    # http://localhost:3000
 6. **Auth → Providers → Google** — paste OAuth client ID + secret from Google Cloud Console
 7. **Auth → Providers → Email** → enable Magic Link, disable "Confirm email" for one-click sign-in
 
-### Resend (optional but recommended)
+### Resend (recommended for newsletter delivery)
 1. Create a Resend account; verify a domain or use sandbox sender
 2. Create an API key with `Send` permission
 3. Add `RESEND_API_KEY` + `RESEND_FROM` to `.env.local`
@@ -714,11 +742,12 @@ Hosted on Vercel from the `main` branch.
 
 ### Deploy flow
 - Push to `main` → Vercel auto-builds and promotes to production
-- Preview deployments on PR branches (`robots: noindex` keeps them out of search results)
-- Hourly cron `/api/cron/publish-scheduled` + `/api/cron/keep-alive`
+- Preview deployments on generated Vercel hosts 308-redirect to the canonical production host
+- Daily cron `/api/cron/publish-scheduled` at `0 9 * * *`
+- Daily cron `/api/cron/keep-alive` at `0 6 * * *`
 
 ### Canonical URL redirect
-Middleware 308-redirects any non-canonical Vercel host to `NEXT_PUBLIC_APP_URL`. Keeps cookies pinned to one host and prevents preview-host OG issues.
+`proxy.ts` 308-redirects any non-localhost, non-canonical host to `NEXT_PUBLIC_APP_URL`. Keeps cookies pinned to one host and prevents preview-host OG issues.
 
 ---
 
@@ -735,7 +764,7 @@ Middleware 308-redirects any non-canonical Vercel host to `NEXT_PUBLIC_APP_URL`.
 | `APP_ALLOWED_EMAIL_DOMAIN` | both | `convegenius.ai` |
 | `APP_MANAGER_EMAIL` | both | comma-separated admin emails |
 | `APP_AUTHOR_EMAILS` | both | comma-separated author emails |
-| `CRON_SECRET` | server | any random string; Vercel uses it to authenticate scheduled jobs |
+| `CRON_SECRET` | server | random string, at least 24 chars in production; Vercel uses it to authenticate scheduled jobs |
 | `RESEND_API_KEY` | server | Resend transactional email key |
 | `RESEND_FROM` | server | `onboarding@resend.dev` (sandbox) or `newsletter@<your-domain>` (verified) |
 
@@ -746,7 +775,13 @@ Middleware 308-redirects any non-canonical Vercel host to `NEXT_PUBLIC_APP_URL`.
 | `NEXT_PUBLIC_REQUIRE_MANAGER_REVIEW` | `false` | If `true`, author Post Now becomes "Submit for review" with `status = submitted` |
 | `NEXT_PUBLIC_MAX_UPLOAD_MB` | `50` | Per-file image upload cap |
 | `NEXT_PUBLIC_MAX_VIDEO_UPLOAD_MB` | `50` | Per-file video upload cap (free Supabase tier max) |
-| `NEXT_PUBLIC_MAX_AUDIO_UPLOAD_MB` | `25` | Per-file audio upload cap |
+| `NEXT_PUBLIC_MAX_AUDIO_UPLOAD_MB` | `50` | Per-file audio upload cap |
+| `NEXT_PUBLIC_ENABLE_DEMO_WATCHING_COUNTER` | `false` | Shows the explicitly-labelled simulated public-nav activity pill |
+| `UPSTASH_REDIS_REST_URL` | unset | Enables rate limiting when paired with token; production boot warns if missing |
+| `UPSTASH_REDIS_REST_TOKEN` | unset | Enables rate limiting when paired with URL; production boot warns if missing |
+| `NEXT_PUBLIC_SENTRY_DSN` | unset | Browser Sentry capture; production boot warns if missing |
+| `SENTRY_DSN` | unset | Server/edge Sentry capture; falls back to public DSN when absent |
+| `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` | unset | Enables Sentry source-map upload during Vercel builds |
 
 ---
 
@@ -792,7 +827,7 @@ curl -H "Authorization: Bearer $env:CRON_SECRET" `
 
 ### Change the contributor order
 1. Edit `displayOrder` numbers in `lib/team.ts`
-2. Deploy — `revalidateTag("public-feed")` happens automatically on next mutation; force-refresh by triggering any post-related write or wait up to 60 seconds for ISR
+2. Deploy — `updateTag("public-feed")` happens automatically on the next editor/admin mutation; force-refresh by triggering any post-related write or wait up to 60 seconds for ISR
 
 ---
 
@@ -801,17 +836,17 @@ curl -H "Authorization: Bearer $env:CRON_SECRET" `
 | Limitation | Impact | Workaround / status |
 |---|---|---|
 | **MIME validation trusts the browser** | An attacker could rename `evil.exe` to `cat.png`; server doesn't sniff bytes | Acceptable for an internal 5-author team. Migrate to magic-byte sniffing if uploads ever open to externals. |
-| **No comment / subscribe rate-limiting** | A spammer could in theory post 100 comments fast | Acceptable for a small internal blog; add Vercel KV-backed rate-limit if abuse appears. |
+| **No comment rate-limiting** | A spammer could in theory post 100 comments fast | Subscribe and media registration are rate-limited via Upstash; add a comments limiter if abuse appears. |
 | **Single-region Supabase** | Latency > 200ms for users far from the Supabase region | Acceptable — public reads cache aggressively via ISR; writes are infrequent. |
 | **Vercel free tier email throttling** | Magic-link emails throttled to ~30/day from Supabase's built-in sender | Workaround: Google OAuth bypasses email entirely. Resend handles newsletter mail at higher volume. |
-| **Search is in-memory `ilike` over titles + excerpts** | Full-table scans don't scale past ~500 posts | Switch to a `tsvector` column + GIN index when corpus grows. |
+| **Search is in-memory filtering over titles + excerpts** | Fetch-then-filter doesn't scale past ~500 posts | Switch to a `tsvector` column + GIN index when corpus grows. |
 | **Resend sandbox sender** | `onboarding@resend.dev` only delivers to the Resend account owner | Verify a domain in Resend to fan out to all subscribers. |
-| **Per-file upload cap** | 50 MB on Supabase free tier | Upgrade to Supabase Pro + run `0012_bucket_file_size_limit.sql` to raise to 200 MB. |
+| **Per-file upload cap** | 50 MB on Supabase free tier | Upgrade the Supabase plan / bucket object limit and raise the matching `NEXT_PUBLIC_MAX_*_UPLOAD_MB` env caps together. |
 | **Post detail page is `force-dynamic`** | Mixes user-specific reactions; can't ISR-cache without splitting public vs user-specific renders | Future work — wrap `getPublicPostBySlug` in `unstable_cache`, render user reactions in a small client component. |
 | **No client-side cache library** | No SWR, no React Query | Intentional — server components + ISR cover the SWR pattern for public reads. Adopt SWR only when a heavy client dashboard appears. |
 | **`/api/media/file` re-signs every uncached fetch** | Modest Supabase Storage cost per uncached video play | Mitigated by 50-minute browser cache; signed URLs are cheap. |
-| **30-day retention cron not yet wired** | Archived posts live forever until manually deleted | Add `/api/cron/cleanup-archived` (handler stub already in the repo) + `vercel.json` cron entry. |
-| **Subscribers table has no rate-limit on signup** | Could bloat with garbage emails | Email-format Zod check is the only gate; add reCAPTCHA / Vercel WAF if abused. |
+| **30-day retention cron not yet wired** | Archived posts live forever until manually deleted | Build `/api/cron/cleanup-archived` and add a `vercel.json` cron entry. |
+| **Rate limiting degrades open when Upstash is missing** | Subscribe + media-registration limits become no-ops in local/dev or misconfigured envs | `instrumentation.ts` warns in production; set both Upstash REST env vars before launch. |
 
 ---
 
@@ -825,7 +860,8 @@ curl -H "Authorization: Bearer $env:CRON_SECRET" `
 - **Webhooks for downstream tools** — Slack notification on publish, Notion mirror, RSS feed
 - **Multi-author drafts** — collaborative editing via TipTap collaboration + Y.js + Supabase Realtime
 - **Drafts versioning** — `post_revisions` table snapshot on each save with rollback UI
-- **30-day retention cron** — wire up `/api/cron/cleanup-archived` + add to `vercel.json`
+- **30-day retention cron** — build `/api/cron/cleanup-archived` + add it to `vercel.json`
+- **Real presence counter** — replace the opt-in simulated `DemoWatchingCounter` with Supabase Realtime presence if live readership becomes useful
 - **Magic-byte MIME sniffing** for upload validation
 - **Comment threading** — single-level replies, capped at 2 deep
 - **Read-time progress bar** — fixed-top scroll-progress strip on long posts
@@ -846,6 +882,10 @@ curl -H "Authorization: Bearer $env:CRON_SECRET" `
 **Cause:** Resend sandbox sender (`onboarding@resend.dev`) only delivers to the Resend account owner.
 **Fix:** Verify a domain in Resend, switch `RESEND_FROM` to `newsletter@<your-domain>`. See `docs/newsletter-delivery-debug.md`.
 
+### Subscribe or media upload returns 429
+**Cause:** Upstash rate limiting is active. Subscribe is limited to 5 attempts / 60 s per IP; media registration is limited to 30 uploads / 60 s per signed-in user.
+**Fix:** Wait for the reset time in `X-RateLimit-Reset`. If limits feel too tight for production behavior, adjust `lib/ratelimit.ts`.
+
 ### Editor toolbar not sticky on long drafts
 **Status:** Fixed. Root cause was `.portal-panel` setting `overflow: hidden`, which interrupts `position: sticky`. Fix moved the toolbar OUTSIDE the Card as a sibling. See `docs/editor-toolbar-layout-fix.md`.
 
@@ -862,10 +902,14 @@ curl -H "Authorization: Bearer $env:CRON_SECRET" `
 **Fix:** Counts on cards lag by ≤60 seconds by design. Post-detail page itself shows live counts. If urgent, trigger any publish or admin write to flush the `public-feed` tag.
 
 ### `revalidate` doesn't seem to invalidate after publish
-**Check:** the server action calls **both** `revalidatePath` AND `revalidateTag("public-feed")`. The `unstable_cache` entries are only invalidated by the tag; path-only invalidation won't bust them.
+**Check:** editor/admin server actions call **both** `revalidatePath` AND `updateTag("public-feed")`. The scheduled-publish route handler calls `revalidateTag("public-feed", "default")`. The `unstable_cache` entries are only invalidated by the tag; path-only invalidation won't bust them.
+
+### Production refuses to boot with `[instrumentation]`
+**Cause:** `instrumentation.ts` detected missing required production env vars or a `CRON_SECRET` shorter than 24 characters.
+**Fix:** Add the missing env vars in Vercel and redeploy. For the cron secret, generate a longer value, for example `openssl rand -hex 32`.
 
 ### Pre-hydration theme flash
-**Status:** Fixed. `<ThemeScript />` runs synchronously as the first child of `<body>` so `data-theme` is stamped before paint. `suppressHydrationWarning` on `<html>` silences React's mismatch warning since the script intentionally mutates the DOM before React mounts.
+**Status:** Fixed. `<ThemeScript />` runs synchronously as the first child of `<body>` so `data-theme` is stamped before paint, defaulting to light unless `cg_signal_theme` says dark. `suppressHydrationWarning` on `<html>` silences React's mismatch warning since the script intentionally mutates the DOM before React mounts.
 
 ### Sticky page wider than viewport on mobile
 **Cause:** flex container without `min-w-0` letting an inner element force its intrinsic width.
@@ -909,4 +953,4 @@ Living docs for ops + audit history live in `docs/`:
 
 ---
 
-_Last updated: 2026-05-15. Maintained alongside the codebase — when behavior changes, this README and the docs above change with it._
+_Last updated: 2026-05-17. Maintained alongside the codebase — when behavior changes, this README and the docs above change with it._
